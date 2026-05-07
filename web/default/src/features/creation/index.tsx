@@ -173,7 +173,7 @@ export function CreationLauncher() {
           {tokens.length > 0 ? (
             <Select
               value={selectedTokenId}
-              onValueChange={setSelectedTokenId}
+              onValueChange={(value) => setSelectedTokenId(value ?? '')}
               disabled={loading || opening}
             >
               <SelectTrigger>
@@ -204,11 +204,9 @@ export function CreationLauncher() {
               <ExternalLink className='size-4' />
               {opening ? t('Opening...') : t('Open Creation')}
             </Button>
-            <Button asChild type='button' variant='outline'>
-              <Link to='/keys'>
-                <KeyRound className='size-4' />
-                {t('Manage API Keys')}
-              </Link>
+            <Button type='button' variant='outline' render={<Link to='/keys' />}>
+              <KeyRound className='size-4' />
+              {t('Manage API Keys')}
             </Button>
           </div>
         </CardContent>

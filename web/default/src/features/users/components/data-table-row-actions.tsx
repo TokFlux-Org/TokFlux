@@ -43,7 +43,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ConfirmDialog } from '@/components/confirm-dialog'
-import { UserSubscriptionsDialog } from '@/features/subscriptions/components/dialogs/user-subscriptions-dialog'
 import { manageUser, resetUserPasskey, resetUserTwoFA } from '../api'
 import {
   USER_STATUS,
@@ -67,7 +66,6 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const [resetPasskeyOpen, setResetPasskeyOpen] = useState(false)
   const [resetTwoFAOpen, setResetTwoFAOpen] = useState(false)
   const [bindingDialogOpen, setBindingDialogOpen] = useState(false)
-  const [subscriptionsDialogOpen, setSubscriptionsDialogOpen] = useState(false)
 
   const handleEdit = () => {
     setCurrentRow(user)
@@ -77,6 +75,11 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const handleDelete = () => {
     setCurrentRow(user)
     setOpen('delete')
+  }
+
+  const handleSubscriptions = () => {
+    setCurrentRow(user)
+    setOpen('subscriptions')
   }
 
   const handleManage = async (action: Exclude<ManageUserAction, 'delete'>) => {
@@ -197,8 +200,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
           )}
 
           <DropdownMenuItem
-            onSelect={(event) => {
-              event.preventDefault()
+            onClick={() => {
               setBindingDialogOpen(true)
             }}
           >
@@ -208,12 +210,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
             </DropdownMenuShortcut>
           </DropdownMenuItem>
 
-          <DropdownMenuItem
-            onSelect={(event) => {
-              event.preventDefault()
-              setSubscriptionsDialogOpen(true)
-            }}
-          >
+          <DropdownMenuItem onClick={handleSubscriptions}>
             {t('Manage Subscriptions')}
             <DropdownMenuShortcut>
               <CreditCard size={16} />
@@ -223,8 +220,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
           <DropdownMenuSeparator />
 
           <DropdownMenuItem
-            onSelect={(event) => {
-              event.preventDefault()
+            onClick={() => {
               setResetPasskeyOpen(true)
             }}
             disabled={isRoot}
@@ -236,8 +232,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
           </DropdownMenuItem>
 
           <DropdownMenuItem
-            onSelect={(event) => {
-              event.preventDefault()
+            onClick={() => {
               setResetTwoFAOpen(true)
             }}
             disabled={isRoot}
@@ -286,13 +281,6 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         onOpenChange={setBindingDialogOpen}
         userId={user.id}
         onUnbindSuccess={triggerRefresh}
-      />
-
-      <UserSubscriptionsDialog
-        open={subscriptionsDialogOpen}
-        onOpenChange={setSubscriptionsDialogOpen}
-        user={{ id: user.id, username: user.username }}
-        onSuccess={triggerRefresh}
       />
     </>
   )

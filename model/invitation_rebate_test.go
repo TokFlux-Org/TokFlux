@@ -1,6 +1,7 @@
 package model
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -15,11 +16,13 @@ func insertInviterAndInviteeForRebateTest(t *testing.T, inviterID int, inviteeID
 	inviter := &User{
 		Id:       inviterID,
 		Username: "rebate_inviter",
+		AffCode:  "rebate_inviter_" + strconv.Itoa(inviterID),
 		Status:   common.UserStatusEnabled,
 	}
 	invitee := &User{
 		Id:        inviteeID,
 		Username:  "rebate_invitee",
+		AffCode:   "rebate_invitee_" + strconv.Itoa(inviteeID),
 		Status:    common.UserStatusEnabled,
 		InviterId: inviterID,
 	}
@@ -99,8 +102,19 @@ func TestSyncInvitationRebatesForInviter_ExcludesSubscriptionTopUps(t *testing.T
 	insertInviterAndInviteeForRebateTest(t, 701, 702)
 	plan := insertSubscriptionPlanForPaymentGuardTest(t, 801)
 	insertSubscriptionOrderForPaymentGuardTest(t, "rebate-subscription-order", 702, plan.Id, PaymentProviderStripe)
+	topUp := &TopUp{
+		UserId:          702,
+		Amount:          0,
+		Money:           9.99,
+		TradeNo:         "rebate-subscription-order",
+		PaymentMethod:   PaymentMethodStripe,
+		PaymentProvider: PaymentProviderStripe,
+		CreateTime:      time.Now().Unix(),
+		CompleteTime:    time.Now().Unix(),
+		Status:          common.TopUpStatusSuccess,
+	}
+	require.NoError(t, topUp.Insert())
 
-	require.NoError(t, CompleteSubscriptionOrder("rebate-subscription-order", `{"provider":"stripe"}`, PaymentProviderStripe, PaymentMethodStripe))
 	require.NoError(t, SyncInvitationRebatesForInviter(701))
 
 	affQuota, affHistoryQuota := getInvitationQuotaForTest(t, 701)

@@ -22,12 +22,24 @@ import { getStatus } from '@/lib/api'
 import type { SystemStatus } from '@/features/auth/types'
 import { mapStatusDataToConfig } from './use-system-config'
 
+function stripSidebarModulesAdmin(
+  status: SystemStatus | undefined
+): SystemStatus | undefined {
+  if (!status) return status
+
+  const cleaned = { ...status } as Record<string, unknown>
+  delete cleaned.SidebarModulesAdmin
+  return cleaned as SystemStatus
+}
+
 // Get initial cache from localStorage
 function getInitialStatus(): SystemStatus | undefined {
   try {
     if (typeof window !== 'undefined') {
       const saved = window.localStorage.getItem('status')
-      return saved ? (JSON.parse(saved) as SystemStatus) : undefined
+      return stripSidebarModulesAdmin(
+        saved ? (JSON.parse(saved) as SystemStatus) : undefined
+      )
     }
   } catch {
     /* empty */
@@ -66,8 +78,10 @@ export function useStatus() {
     },
     // Use localStorage data as initial data
     placeholderData: getInitialStatus(),
-    // Data becomes stale after 5 minutes
-    staleTime: 5 * 60 * 1000,
+    // Always refresh on mount so sidebar config is revalidated against the backend.
+    refetchOnMount: 'always',
+    // Keep the query effectively stale so cached status never blocks a refresh.
+    staleTime: 0,
     // Cache expires after 30 minutes
     gcTime: 30 * 60 * 1000,
   })

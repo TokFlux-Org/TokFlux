@@ -3,6 +3,7 @@ import { Share2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getSelf, api } from '@/lib/api'
 import dayjs from '@/lib/dayjs'
+import { formatQuota } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -27,7 +28,12 @@ type InvitationRecord = {
 
 type InvitationRebate = {
   id: number
+  invitee_id?: number
+  invitee_name?: string
+  trade_no?: string
+  top_up_money?: number | string
   rebate_amount?: number | string
+  rebate_quota?: number | string
   status?: string
   created_at?: number | string
   settled_at?: number | string
@@ -56,6 +62,11 @@ function formatTimestamp(value: number | string | undefined) {
   const timestamp = Number.parseInt(String(value ?? 0), 10)
   if (!Number.isFinite(timestamp) || timestamp <= 0) return '-'
   return dayjs(timestamp * 1000).format('YYYY-MM-DD HH:mm:ss')
+}
+
+function formatQuotaValue(value: number | string | undefined) {
+  const quota = Number.parseInt(String(value ?? 0), 10)
+  return formatQuota(Number.isFinite(quota) ? quota : 0)
 }
 
 export function Invite() {
@@ -116,7 +127,9 @@ export function Invite() {
   return (
     <>
       <SectionPageLayout>
-        <SectionPageLayout.Title>{t('Referral Rewards')}</SectionPageLayout.Title>
+        <SectionPageLayout.Title>
+          {t('Referral Rewards')}
+        </SectionPageLayout.Title>
         <SectionPageLayout.Description>
           {t('Manage your referral link, rewards, and rebate records.')}
         </SectionPageLayout.Description>
@@ -192,16 +205,34 @@ export function Invite() {
                       {rebates.map((record) => (
                         <div key={record.id} className='grid gap-1 p-3'>
                           <div className='flex items-center justify-between gap-3'>
-                            <span className='text-sm font-semibold tabular-nums'>
-                              {formatMoney(record.rebate_amount)}
-                            </span>
+                            <div className='min-w-0'>
+                              <div className='truncate text-sm font-medium'>
+                                {record.invitee_name ||
+                                  (record.invitee_id
+                                    ? `#${record.invitee_id}`
+                                    : '-')}
+                              </div>
+                              <div className='text-muted-foreground truncate text-xs'>
+                                {t('Top-up')}:{' '}
+                                {formatMoney(record.top_up_money)}
+                              </div>
+                            </div>
                             <span className='text-muted-foreground text-xs'>
                               {record.status || '-'}
                             </span>
                           </div>
+                          <div className='flex flex-wrap gap-x-3 gap-y-1 text-xs'>
+                            <span className='font-semibold tabular-nums'>
+                              {formatMoney(record.rebate_amount)}
+                            </span>
+                            <span className='text-muted-foreground'>
+                              {t('Quota')}:{' '}
+                              {formatQuotaValue(record.rebate_quota)}
+                            </span>
+                          </div>
                           <div className='text-muted-foreground text-xs'>
                             {t('Created')}: {formatTimestamp(record.created_at)}
-                            {' · '}
+                            {' | '}
                             {t('Settled')}: {formatTimestamp(record.settled_at)}
                           </div>
                         </div>

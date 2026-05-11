@@ -98,6 +98,24 @@ export const Route = createRootRouteWithContext<{
   // 应用初始化与路由解析前统一校验会话
   beforeLoad: async ({ location }) => {
     const pathname = location?.pathname || ''
+    const search = (location?.search || {}) as Record<string, unknown>
+    const aff = search.aff
+    if (typeof window !== 'undefined' && typeof aff === 'string' && aff) {
+      try {
+        window.localStorage.setItem('aff', aff)
+      } catch {
+        /* empty */
+      }
+    }
+
+    if (pathname === '/register') {
+      throw redirect({
+        to: '/sign-up',
+        search,
+        replace: true,
+      })
+    }
+
     const needsSetupCheck =
       !setupStatusChecked && !pathname.startsWith('/setup')
 

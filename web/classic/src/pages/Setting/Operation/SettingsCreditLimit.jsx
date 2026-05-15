@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useContext, useEffect, useState, useRef } from 'react';
-import { Button, Col, Form, Row, Spin } from '@douyinfe/semi-ui';
+import { Banner, Button, Col, Form, Row, Spin } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 import {
   compareObjects,
@@ -43,6 +43,9 @@ export default function SettingsCreditLimit(props) {
   });
   const refForm = useRef();
   const [inputsRow, setInputsRow] = useState(inputs);
+  const complianceConfirmed =
+    props.options?.['payment_setting.compliance_confirmed'] === true ||
+    props.options?.['payment_setting.compliance_confirmed'] === 'true';
 
   function onSubmit() {
     const updateArray = compareObjects(inputs, inputsRow);
@@ -108,6 +111,16 @@ export default function SettingsCreditLimit(props) {
   return (
     <>
       <Spin spinning={loading}>
+        {!complianceConfirmed && (
+          <Banner
+            type='warning'
+            description={t(
+              '设置非零邀请奖励额度前，需要先在支付设置中确认合规声明。',
+            )}
+            closeIcon={null}
+            className='!rounded-lg mb-3'
+          />
+        )}
         <Form
           values={inputs}
           getFormApi={(formAPI) => (refForm.current = formAPI)}
@@ -155,7 +168,9 @@ export default function SettingsCreditLimit(props) {
                   step={1}
                   min={0}
                   suffix={'Token'}
-                  extraText={''}
+                  extraText={
+                    !complianceConfirmed ? t('非零值需先确认合规声明') : ''
+                  }
                   placeholder={t('例如：2000')}
                   onChange={(value) =>
                     setInputs({
@@ -174,7 +189,9 @@ export default function SettingsCreditLimit(props) {
                   step={1}
                   min={0}
                   suffix={'Token'}
-                  extraText={''}
+                  extraText={
+                    !complianceConfirmed ? t('非零值需先确认合规声明') : ''
+                  }
                   placeholder={t('例如：1000')}
                   onChange={(value) =>
                     setInputs({

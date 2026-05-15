@@ -81,6 +81,7 @@ const InvitationCard = ({
   setOpenTransfer,
   affLink,
   handleAffLinkClick,
+  complianceConfirmed = true,
   inviteRebatePercentageText,
   inviteRewardDisplayText,
   invitationRecords,
@@ -139,6 +140,7 @@ const InvitationCard = ({
                     theme='solid'
                     size='small'
                     disabled={
+                      !complianceConfirmed ||
                       !userState?.user?.aff_quota ||
                       userState?.user?.aff_quota <= 0
                     }
@@ -149,6 +151,16 @@ const InvitationCard = ({
                     {TEXT.transferToBalance}
                   </Button>
                 </div>
+                {!complianceConfirmed && (
+                  <Text
+                    style={{
+                      color: 'rgba(255,255,255,0.8)',
+                      fontSize: 12,
+                    }}
+                  >
+                    {t('邀请奖励划转已禁用，管理员需先确认合规声明。')}
+                  </Text>
+                )}
 
                 <div className='grid grid-cols-3 gap-6 mt-4'>
                   <div className='text-center'>

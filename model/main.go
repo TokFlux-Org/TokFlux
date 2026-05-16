@@ -254,6 +254,9 @@ func migrateDB() error {
 	if err := migrateTokenModelLimitsToText(); err != nil {
 		return err
 	}
+	if err := migrateGrowthRewardTables(); err != nil {
+		return err
+	}
 
 	err := DB.AutoMigrate(
 		&Channel{},
@@ -267,6 +270,9 @@ func migrateDB() error {
 		&Midjourney{},
 		&TopUp{},
 		&InvitationRebate{},
+		&GrowthRewardItem{},
+		&GrowthReward{},
+		&GrowthSubmission{},
 		&QuotaData{},
 		&Task{},
 		&Model{},
@@ -299,6 +305,9 @@ func migrateDB() error {
 }
 
 func migrateDBFast() error {
+	if err := migrateGrowthRewardTables(); err != nil {
+		return err
+	}
 
 	var wg sync.WaitGroup
 
@@ -317,6 +326,9 @@ func migrateDBFast() error {
 		{&Midjourney{}, "Midjourney"},
 		{&TopUp{}, "TopUp"},
 		{&InvitationRebate{}, "InvitationRebate"},
+		{&GrowthRewardItem{}, "GrowthRewardItem"},
+		{&GrowthReward{}, "GrowthReward"},
+		{&GrowthSubmission{}, "GrowthSubmission"},
 		{&QuotaData{}, "QuotaData"},
 		{&Task{}, "Task"},
 		{&Model{}, "Model"},

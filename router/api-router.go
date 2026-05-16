@@ -146,6 +146,34 @@ func SetApiRouter(router *gin.Engine) {
 			}
 		}
 
+		growthRoute := apiRouter.Group("/growth")
+		growthRoute.Use(middleware.UserAuth())
+		{
+			growthRoute.GET("/summary", controller.GetGrowthSummary)
+			growthRoute.GET("/items", controller.GetGrowthRewardItems)
+			growthRoute.POST("/items/:code/claim", controller.ClaimGrowthRewardItem)
+			growthRoute.GET("/tasks", controller.GetGrowthRewardItems)
+			growthRoute.POST("/tasks/:code/claim", controller.ClaimGrowthRewardItem)
+			growthRoute.GET("/rewards", controller.GetGrowthRewards)
+			growthRoute.POST("/submissions", controller.CreateGrowthSubmission)
+			growthRoute.GET("/submissions", controller.GetGrowthSubmissions)
+		}
+		growthAdminRoute := apiRouter.Group("/growth/admin")
+		growthAdminRoute.Use(middleware.AdminAuth())
+		{
+			growthAdminRoute.GET("/items", controller.AdminGetGrowthRewardItems)
+			growthAdminRoute.POST("/items", controller.AdminCreateGrowthRewardItem)
+			growthAdminRoute.PUT("/items/:id", controller.AdminUpdateGrowthRewardItem)
+			growthAdminRoute.GET("/tasks", controller.AdminGetGrowthRewardItems)
+			growthAdminRoute.POST("/tasks", controller.AdminCreateGrowthRewardItem)
+			growthAdminRoute.PUT("/tasks/:id", controller.AdminUpdateGrowthRewardItem)
+			growthAdminRoute.GET("/rewards", controller.AdminGetGrowthRewards)
+			growthAdminRoute.GET("/submissions", controller.AdminGetGrowthSubmissions)
+			growthAdminRoute.POST("/submissions/:id/approve", controller.AdminApproveGrowthSubmission)
+			growthAdminRoute.POST("/submissions/:id/reject", controller.AdminRejectGrowthSubmission)
+			growthAdminRoute.GET("/stats", controller.AdminGetGrowthStats)
+		}
+
 		// Subscription billing (plans, purchase, admin management)
 		subscriptionRoute := apiRouter.Group("/subscription")
 		subscriptionRoute.Use(middleware.UserAuth())

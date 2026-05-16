@@ -31,9 +31,10 @@ import {
   FlaskConical,
   MessageSquare,
   CreditCard,
+  Gift,
   ListTodo,
+  Megaphone,
   PenLine,
-  Share2,
   Settings,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -117,9 +118,15 @@ export function useSidebarData(): SidebarData {
             icon: Wallet,
           },
           {
-            title: t('Referral Rewards'),
-            url: '/invite',
-            icon: Share2,
+            title: t('Reward Center'),
+            url: '/growth',
+            icon: Gift,
+          },
+          {
+            title: t('Promotion Center'),
+            url: '/promotion',
+            activeUrls: ['/invite'],
+            icon: Megaphone,
           },
           {
             title: t('Profile'),

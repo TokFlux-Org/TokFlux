@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -47,6 +46,9 @@ func GetStatus(c *gin.Context) {
 
 	passkeySetting := system_setting.GetPasskeySettings()
 	legalSetting := system_setting.GetLegalSettings()
+	growthSetting := operation_setting.GetGrowthSetting()
+	checkinSetting := operation_setting.GetCheckinSetting()
+	growthCenterEnabled := growthSetting.Enabled || growthSetting.SubmissionEnabled || checkinSetting.Enabled
 
 	data := gin.H{
 		"version":                     common.Version,
@@ -119,7 +121,10 @@ func GetStatus(c *gin.Context) {
 		"setup":                       constant.Setup,
 		"user_agreement_enabled":      legalSetting.UserAgreement != "",
 		"privacy_policy_enabled":      legalSetting.PrivacyPolicy != "",
-		"checkin_enabled":             operation_setting.GetCheckinSetting().Enabled,
+		"checkin_enabled":             checkinSetting.Enabled,
+		"growth_center_enabled":       growthCenterEnabled,
+		"growth_rewards_enabled":      growthSetting.Enabled || checkinSetting.Enabled,
+		"growth_submission_enabled":   growthSetting.SubmissionEnabled,
 	}
 
 	// 根据启用状态注入可选内容
@@ -338,7 +343,7 @@ type PasswordResetRequest struct {
 
 func ResetPassword(c *gin.Context) {
 	var req PasswordResetRequest
-	err := json.NewDecoder(c.Request.Body).Decode(&req)
+	err := common.DecodeJson(c.Request.Body, &req)
 	if req.Email == "" || req.Token == "" {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,

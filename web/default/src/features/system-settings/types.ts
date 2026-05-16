@@ -273,6 +273,20 @@ export type BillingSettings = {
   'checkin_setting.enabled': boolean
   'checkin_setting.min_quota': number
   'checkin_setting.max_quota': number
+  'growth_setting.enabled': boolean
+  'growth_setting.first_api_key_reward_quota': number
+  'growth_setting.first_api_request_reward_quota': number
+  'growth_setting.first_topup_reward_quota': number
+  'growth_setting.three_day_usage_reward_quota': number
+  'growth_setting.monthly_spend_reward_quota': number
+  'growth_setting.monthly_spend_target_quota': number
+  'growth_setting.invite_rebate_percentage': number
+  'growth_setting.rebate_freeze_days': number
+  'growth_setting.user_daily_reward_limit_quota': number
+  'growth_setting.site_daily_budget_quota': number
+  'growth_setting.submission_enabled': boolean
+  'growth_setting.submission_min_reward_quota': number
+  'growth_setting.submission_max_reward_quota': number
 }
 
 export type OperationsSettings = {

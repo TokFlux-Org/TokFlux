@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { parseCurrencyDisplayType } from '@/lib/currency'
 import { CheckinSettingsSection } from '../general/checkin-settings-section'
+import { GrowthSettingsSection } from '../general/growth-settings-section'
 import { PricingSection } from '../general/pricing-section'
 import { QuotaSettingsSection } from '../general/quota-settings-section'
 import { PaymentSettingsSection } from '../integrations/payment-settings-section'
@@ -212,6 +213,43 @@ const BILLING_SECTIONS = [
           enabled: settings['checkin_setting.enabled'],
           minQuota: settings['checkin_setting.min_quota'],
           maxQuota: settings['checkin_setting.max_quota'],
+        }}
+      />
+    ),
+  },
+  {
+    id: 'growth',
+    titleKey: 'Promotion & Rewards',
+    descriptionKey:
+      'Configure activation, retention, referral, and content rewards.',
+    build: (settings: BillingSettings) => (
+      <GrowthSettingsSection
+        defaultValues={{
+          enabled: settings['growth_setting.enabled'],
+          firstAPIKeyRewardQuota:
+            settings['growth_setting.first_api_key_reward_quota'],
+          firstAPIRequestRewardQuota:
+            settings['growth_setting.first_api_request_reward_quota'],
+          firstTopUpRewardQuota:
+            settings['growth_setting.first_topup_reward_quota'],
+          threeDayUsageRewardQuota:
+            settings['growth_setting.three_day_usage_reward_quota'],
+          monthlySpendRewardQuota:
+            settings['growth_setting.monthly_spend_reward_quota'],
+          monthlySpendTargetQuota:
+            settings['growth_setting.monthly_spend_target_quota'],
+          inviteRebatePercentage:
+            settings['growth_setting.invite_rebate_percentage'],
+          rebateFreezeDays: settings['growth_setting.rebate_freeze_days'],
+          userDailyRewardLimitQuota:
+            settings['growth_setting.user_daily_reward_limit_quota'],
+          siteDailyBudgetQuota:
+            settings['growth_setting.site_daily_budget_quota'],
+          submissionEnabled: settings['growth_setting.submission_enabled'],
+          submissionMinRewardQuota:
+            settings['growth_setting.submission_min_reward_quota'],
+          submissionMaxRewardQuota:
+            settings['growth_setting.submission_max_reward_quota'],
         }}
       />
     ),

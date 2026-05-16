@@ -119,9 +119,14 @@ export function SidebarModulesCard() {
           description: t('Balance and top-up management'),
         },
         {
-          key: 'invite',
-          title: t('Referral Rewards'),
-          description: t('Referral links and rewards management'),
+          key: 'rewards',
+          title: t('Reward Center'),
+          description: t('Activation rewards and reward records'),
+        },
+        {
+          key: 'promotion',
+          title: t('Promotion Center'),
+          description: t('Referral rebates and content promotion submissions'),
         },
         {
           key: 'personal',

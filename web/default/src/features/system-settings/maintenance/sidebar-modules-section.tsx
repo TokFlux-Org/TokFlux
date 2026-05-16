@@ -120,9 +120,15 @@ export function SidebarModulesSection({
         title: t('Wallet'),
         description: t('Top up balance and view billing history.'),
       },
-      invite: {
-        title: t('Referral Rewards'),
-        description: t('Manage referral links and accumulated rewards.'),
+      rewards: {
+        title: t('Reward Center'),
+        description: t('Show activation rewards and reward records.'),
+      },
+      promotion: {
+        title: t('Promotion Center'),
+        description: t(
+          'Show referral rebates, content promotion submissions, and promotion records.'
+        ),
       },
       personal: {
         title: t('Profile'),
@@ -199,7 +205,9 @@ export function SidebarModulesSection({
               description: t('Custom sidebar section'),
             }
             const modules = Object.entries(sectionConfig).filter(
-              ([moduleKey]) => moduleKey !== 'enabled'
+              ([moduleKey]) =>
+                moduleKey !== 'enabled' &&
+                !(sectionKey === 'personal' && moduleKey === 'invite')
             )
 
             return (

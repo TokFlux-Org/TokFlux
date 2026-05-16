@@ -127,6 +127,10 @@ export interface SystemStatus {
     oauth_register_enabled?: boolean
     register_enabled?: boolean
     password_register_enabled?: boolean
+    checkin_enabled?: boolean
+    growth_center_enabled?: boolean
+    growth_rewards_enabled?: boolean
+    growth_submission_enabled?: boolean
     custom_oauth_providers?: CustomOAuthProviderInfo[]
     [key: string]: unknown
   }
@@ -169,6 +173,10 @@ export interface SystemStatus {
   oauth_register_enabled?: boolean
   register_enabled?: boolean
   password_register_enabled?: boolean
+  checkin_enabled?: boolean
+  growth_center_enabled?: boolean
+  growth_rewards_enabled?: boolean
+  growth_submission_enabled?: boolean
   custom_oauth_providers?: CustomOAuthProviderInfo[]
   [key: string]: unknown
 }

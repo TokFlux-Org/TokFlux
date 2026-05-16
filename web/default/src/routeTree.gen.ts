@@ -41,11 +41,13 @@ import { Route as AuthenticatedUsageLogsIndexRouteImport } from './routes/_authe
 import { Route as AuthenticatedSystemSettingsIndexRouteImport } from './routes/_authenticated/system-settings/index'
 import { Route as AuthenticatedSubscriptionsIndexRouteImport } from './routes/_authenticated/subscriptions/index'
 import { Route as AuthenticatedRedemptionCodesIndexRouteImport } from './routes/_authenticated/redemption-codes/index'
+import { Route as AuthenticatedPromotionIndexRouteImport } from './routes/_authenticated/promotion/index'
 import { Route as AuthenticatedProfileIndexRouteImport } from './routes/_authenticated/profile/index'
 import { Route as AuthenticatedPlaygroundIndexRouteImport } from './routes/_authenticated/playground/index'
 import { Route as AuthenticatedModelsIndexRouteImport } from './routes/_authenticated/models/index'
 import { Route as AuthenticatedKeysIndexRouteImport } from './routes/_authenticated/keys/index'
 import { Route as AuthenticatedInviteIndexRouteImport } from './routes/_authenticated/invite/index'
+import { Route as AuthenticatedGrowthIndexRouteImport } from './routes/_authenticated/growth/index'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard/index'
 import { Route as AuthenticatedCreationIndexRouteImport } from './routes/_authenticated/creation/index'
 import { Route as AuthenticatedChannelsIndexRouteImport } from './routes/_authenticated/channels/index'
@@ -234,6 +236,12 @@ const AuthenticatedRedemptionCodesIndexRoute =
     path: '/redemption-codes/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedPromotionIndexRoute =
+  AuthenticatedPromotionIndexRouteImport.update({
+    id: '/promotion/',
+    path: '/promotion/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedProfileIndexRoute =
   AuthenticatedProfileIndexRouteImport.update({
     id: '/profile/',
@@ -261,6 +269,12 @@ const AuthenticatedInviteIndexRoute =
   AuthenticatedInviteIndexRouteImport.update({
     id: '/invite/',
     path: '/invite/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedGrowthIndexRoute =
+  AuthenticatedGrowthIndexRouteImport.update({
+    id: '/growth/',
+    path: '/growth/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedDashboardIndexRoute =
@@ -433,11 +447,13 @@ export interface FileRoutesByFullPath {
   '/channels/': typeof AuthenticatedChannelsIndexRoute
   '/creation/': typeof AuthenticatedCreationIndexRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
+  '/growth/': typeof AuthenticatedGrowthIndexRoute
   '/invite/': typeof AuthenticatedInviteIndexRoute
   '/keys/': typeof AuthenticatedKeysIndexRoute
   '/models/': typeof AuthenticatedModelsIndexRoute
   '/playground/': typeof AuthenticatedPlaygroundIndexRoute
   '/profile/': typeof AuthenticatedProfileIndexRoute
+  '/promotion/': typeof AuthenticatedPromotionIndexRoute
   '/redemption-codes/': typeof AuthenticatedRedemptionCodesIndexRoute
   '/subscriptions/': typeof AuthenticatedSubscriptionsIndexRoute
   '/system-settings/': typeof AuthenticatedSystemSettingsIndexRoute
@@ -492,11 +508,13 @@ export interface FileRoutesByTo {
   '/channels': typeof AuthenticatedChannelsIndexRoute
   '/creation': typeof AuthenticatedCreationIndexRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
+  '/growth': typeof AuthenticatedGrowthIndexRoute
   '/invite': typeof AuthenticatedInviteIndexRoute
   '/keys': typeof AuthenticatedKeysIndexRoute
   '/models': typeof AuthenticatedModelsIndexRoute
   '/playground': typeof AuthenticatedPlaygroundIndexRoute
   '/profile': typeof AuthenticatedProfileIndexRoute
+  '/promotion': typeof AuthenticatedPromotionIndexRoute
   '/redemption-codes': typeof AuthenticatedRedemptionCodesIndexRoute
   '/subscriptions': typeof AuthenticatedSubscriptionsIndexRoute
   '/system-settings': typeof AuthenticatedSystemSettingsIndexRoute
@@ -555,11 +573,13 @@ export interface FileRoutesById {
   '/_authenticated/channels/': typeof AuthenticatedChannelsIndexRoute
   '/_authenticated/creation/': typeof AuthenticatedCreationIndexRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
+  '/_authenticated/growth/': typeof AuthenticatedGrowthIndexRoute
   '/_authenticated/invite/': typeof AuthenticatedInviteIndexRoute
   '/_authenticated/keys/': typeof AuthenticatedKeysIndexRoute
   '/_authenticated/models/': typeof AuthenticatedModelsIndexRoute
   '/_authenticated/playground/': typeof AuthenticatedPlaygroundIndexRoute
   '/_authenticated/profile/': typeof AuthenticatedProfileIndexRoute
+  '/_authenticated/promotion/': typeof AuthenticatedPromotionIndexRoute
   '/_authenticated/redemption-codes/': typeof AuthenticatedRedemptionCodesIndexRoute
   '/_authenticated/subscriptions/': typeof AuthenticatedSubscriptionsIndexRoute
   '/_authenticated/system-settings/': typeof AuthenticatedSystemSettingsIndexRoute
@@ -617,11 +637,13 @@ export interface FileRouteTypes {
     | '/channels/'
     | '/creation/'
     | '/dashboard/'
+    | '/growth/'
     | '/invite/'
     | '/keys/'
     | '/models/'
     | '/playground/'
     | '/profile/'
+    | '/promotion/'
     | '/redemption-codes/'
     | '/subscriptions/'
     | '/system-settings/'
@@ -676,11 +698,13 @@ export interface FileRouteTypes {
     | '/channels'
     | '/creation'
     | '/dashboard'
+    | '/growth'
     | '/invite'
     | '/keys'
     | '/models'
     | '/playground'
     | '/profile'
+    | '/promotion'
     | '/redemption-codes'
     | '/subscriptions'
     | '/system-settings'
@@ -738,11 +762,13 @@ export interface FileRouteTypes {
     | '/_authenticated/channels/'
     | '/_authenticated/creation/'
     | '/_authenticated/dashboard/'
+    | '/_authenticated/growth/'
     | '/_authenticated/invite/'
     | '/_authenticated/keys/'
     | '/_authenticated/models/'
     | '/_authenticated/playground/'
     | '/_authenticated/profile/'
+    | '/_authenticated/promotion/'
     | '/_authenticated/redemption-codes/'
     | '/_authenticated/subscriptions/'
     | '/_authenticated/system-settings/'
@@ -1013,6 +1039,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRedemptionCodesIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/promotion/': {
+      id: '/_authenticated/promotion/'
+      path: '/promotion'
+      fullPath: '/promotion/'
+      preLoaderRoute: typeof AuthenticatedPromotionIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/profile/': {
       id: '/_authenticated/profile/'
       path: '/profile'
@@ -1046,6 +1079,13 @@ declare module '@tanstack/react-router' {
       path: '/invite'
       fullPath: '/invite/'
       preLoaderRoute: typeof AuthenticatedInviteIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/growth/': {
+      id: '/_authenticated/growth/'
+      path: '/growth'
+      fullPath: '/growth/'
+      preLoaderRoute: typeof AuthenticatedGrowthIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dashboard/': {
@@ -1304,11 +1344,13 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedChannelsIndexRoute: typeof AuthenticatedChannelsIndexRoute
   AuthenticatedCreationIndexRoute: typeof AuthenticatedCreationIndexRoute
   AuthenticatedDashboardIndexRoute: typeof AuthenticatedDashboardIndexRoute
+  AuthenticatedGrowthIndexRoute: typeof AuthenticatedGrowthIndexRoute
   AuthenticatedInviteIndexRoute: typeof AuthenticatedInviteIndexRoute
   AuthenticatedKeysIndexRoute: typeof AuthenticatedKeysIndexRoute
   AuthenticatedModelsIndexRoute: typeof AuthenticatedModelsIndexRoute
   AuthenticatedPlaygroundIndexRoute: typeof AuthenticatedPlaygroundIndexRoute
   AuthenticatedProfileIndexRoute: typeof AuthenticatedProfileIndexRoute
+  AuthenticatedPromotionIndexRoute: typeof AuthenticatedPromotionIndexRoute
   AuthenticatedRedemptionCodesIndexRoute: typeof AuthenticatedRedemptionCodesIndexRoute
   AuthenticatedSubscriptionsIndexRoute: typeof AuthenticatedSubscriptionsIndexRoute
   AuthenticatedUsageLogsIndexRoute: typeof AuthenticatedUsageLogsIndexRoute
@@ -1328,11 +1370,13 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedChannelsIndexRoute: AuthenticatedChannelsIndexRoute,
   AuthenticatedCreationIndexRoute: AuthenticatedCreationIndexRoute,
   AuthenticatedDashboardIndexRoute: AuthenticatedDashboardIndexRoute,
+  AuthenticatedGrowthIndexRoute: AuthenticatedGrowthIndexRoute,
   AuthenticatedInviteIndexRoute: AuthenticatedInviteIndexRoute,
   AuthenticatedKeysIndexRoute: AuthenticatedKeysIndexRoute,
   AuthenticatedModelsIndexRoute: AuthenticatedModelsIndexRoute,
   AuthenticatedPlaygroundIndexRoute: AuthenticatedPlaygroundIndexRoute,
   AuthenticatedProfileIndexRoute: AuthenticatedProfileIndexRoute,
+  AuthenticatedPromotionIndexRoute: AuthenticatedPromotionIndexRoute,
   AuthenticatedRedemptionCodesIndexRoute:
     AuthenticatedRedemptionCodesIndexRoute,
   AuthenticatedSubscriptionsIndexRoute: AuthenticatedSubscriptionsIndexRoute,

@@ -348,9 +348,9 @@ export function useSidebarConfig(navGroups: NavGroup[]): NavGroup[] {
 
   const runtimeFlags = useMemo(
     () => ({
-      rewardCenterEnabled: status?.growth_rewards_enabled === true,
+      rewardCenterEnabled: status?.growth_center_enabled === true,
     }),
-    [status?.growth_rewards_enabled]
+    [status?.growth_center_enabled]
   )
 
   const filteredNavGroups = useMemo(

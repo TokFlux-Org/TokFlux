@@ -332,15 +332,29 @@ func HardDeleteUserById(id int) error {
 	return err
 }
 
-func inviteUser(inviterId int) (err error) {
-	user, err := GetUserById(inviterId, true)
-	if err != nil {
-		return err
+func inviteUser(inviterId int, inviteeId int) (err error) {
+	if inviterId <= 0 || inviteeId <= 0 {
+		return nil
 	}
-	user.AffCount++
-	user.AffQuota += common.QuotaForInviter
-	user.AffHistoryQuota += common.QuotaForInviter
-	return DB.Save(user).Error
+	return DB.Transaction(func(tx *gorm.DB) error {
+		user := &User{}
+		if err := tx.Set("gorm:query_option", "FOR UPDATE").Where("id = ?", inviterId).First(user).Error; err != nil {
+			return err
+		}
+
+		reward, err := CreateInvitationRegisterRewardTx(tx, inviterId, inviteeId)
+		if err != nil {
+			return err
+		}
+		if reward == nil {
+			return nil
+		}
+
+		user.AffCount++
+		user.AffQuota += reward.RewardQuota
+		user.AffHistoryQuota += reward.RewardQuota
+		return tx.Save(user).Error
+	})
 }
 
 func (user *User) TransferAffQuotaToQuota(quota int) error {
@@ -430,7 +444,7 @@ func (user *User) Insert(inviterId int) error {
 		if common.QuotaForInviter > 0 {
 			//_ = IncreaseUserQuota(inviterId, common.QuotaForInviter)
 			RecordLog(inviterId, LogTypeSystem, fmt.Sprintf("邀请用户赠送 %s", logger.LogQuota(common.QuotaForInviter)))
-			_ = inviteUser(inviterId)
+			_ = inviteUser(inviterId, user.Id)
 		}
 	}
 	return nil
@@ -490,7 +504,7 @@ func (user *User) FinalizeOAuthUserCreation(inviterId int) {
 		}
 		if common.QuotaForInviter > 0 {
 			RecordLog(inviterId, LogTypeSystem, fmt.Sprintf("邀请用户赠送 %s", logger.LogQuota(common.QuotaForInviter)))
-			_ = inviteUser(inviterId)
+			_ = inviteUser(inviterId, user.Id)
 		}
 	}
 }
@@ -962,12 +976,41 @@ func UpdateUserLastLoginAt(id int) {
 }
 
 func UpdateUserUsedQuotaAndRequestCount(id int, quota int) {
+	wasFirstRequest := shouldSettleInvitationFirstRequestReward(id)
 	if common.BatchUpdateEnabled {
 		addNewRecord(BatchUpdateTypeUsedQuota, id, quota)
 		addNewRecord(BatchUpdateTypeRequestCount, id, 1)
+		if wasFirstRequest {
+			gopool.Go(func() {
+				SettleInvitationFirstRequestReward(id)
+			})
+		}
 		return
 	}
 	updateUserUsedQuotaAndRequestCount(id, quota, 1)
+	if wasFirstRequest {
+		gopool.Go(func() {
+			SettleInvitationFirstRequestReward(id)
+		})
+	}
+}
+
+func shouldSettleInvitationFirstRequestReward(id int) bool {
+	if id <= 0 {
+		return false
+	}
+	if !operation_setting.IsPaymentComplianceConfirmed() {
+		return false
+	}
+	if operation_setting.GetGrowthSetting().InviteFirstRequestRewardQuota <= 0 {
+		return false
+	}
+	var user User
+	err := DB.Select("id", "inviter_id", "request_count").Where("id = ?", id).First(&user).Error
+	if err != nil {
+		return false
+	}
+	return user.InviterId > 0 && user.RequestCount == 0
 }
 
 func updateUserUsedQuotaAndRequestCount(id int, quota int, count int) {

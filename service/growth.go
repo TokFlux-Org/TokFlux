@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -25,10 +26,12 @@ type GrowthSummary struct {
 
 type GrowthRewardItemStatus struct {
 	*model.GrowthRewardItem
-	RewardQuota int    `json:"reward_quota"`
-	Status      string `json:"status"`
-	Claimable   bool   `json:"claimable"`
-	Reason      string `json:"reason,omitempty"`
+	RewardQuota    int    `json:"reward_quota"`
+	RewardQuotaMin int    `json:"reward_quota_min"`
+	RewardQuotaMax int    `json:"reward_quota_max"`
+	Status         string `json:"status"`
+	Claimable      bool   `json:"claimable"`
+	Reason         string `json:"reason,omitempty"`
 }
 
 type GrowthSubmissionRequest struct {
@@ -50,6 +53,11 @@ func EnsureDefaultGrowthRewardItems() error {
 		if err := model.DB.Where("code = ?", item.Code).FirstOrCreate(&row).Error; err != nil {
 			return err
 		}
+	}
+	if err := model.DB.Model(&model.GrowthRewardItem{}).
+		Where("code = ? AND item_type <> ?", model.GrowthRewardItemJoinCommunity, model.GrowthRewardItemTypeAuto).
+		Update("item_type", model.GrowthRewardItemTypeAuto).Error; err != nil {
+		return err
 	}
 	return nil
 }
@@ -76,13 +84,27 @@ func GetGrowthSummary(userId int) (*GrowthSummary, error) {
 		Scan(&monthlyRebate).Error; err != nil {
 		return nil, err
 	}
+	var monthlyInvitationReward int64
+	if err := model.DB.Model(&model.InvitationReward{}).
+		Where("inviter_id = ? AND status = ? AND settled_at >= ?", userId, model.InvitationRewardStatusSettled, monthStart).
+		Select("COALESCE(SUM(reward_quota), 0)").
+		Scan(&monthlyInvitationReward).Error; err != nil {
+		return nil, err
+	}
+	var pendingInvitationRebate int64
+	if err := model.DB.Model(&model.InvitationRebate{}).
+		Where("inviter_id = ? AND status = ?", userId, model.InvitationRebateStatusPending).
+		Select("COALESCE(SUM(rebate_quota), 0)").
+		Scan(&pendingInvitationRebate).Error; err != nil {
+		return nil, err
+	}
 
 	return &GrowthSummary{
 		AvailableRewardQuota: rewardSummary.AvailableRewardQuota,
-		PendingRewardQuota:   rewardSummary.PendingRewardQuota,
+		PendingRewardQuota:   rewardSummary.PendingRewardQuota + pendingInvitationRebate,
 		TotalRewardQuota:     rewardSummary.TotalRewardQuota,
 		InviteCount:          user.AffCount,
-		MonthlyRebateQuota:   monthlyRebate,
+		MonthlyRebateQuota:   monthlyRebate + monthlyInvitationReward,
 		TotalRebateQuota:     user.AffHistoryQuota,
 		AffCode:              user.AffCode,
 		InviteRebatePercent:  common.InviteRebatePercentage,
@@ -104,7 +126,8 @@ func ListGrowthRewardItemsForUser(userId int) ([]*GrowthRewardItemStatus, error)
 		if shouldHideGrowthRewardItem(item, growthSetting, checkinSetting) {
 			continue
 		}
-		rewardQuota := resolveGrowthRewardQuota(item)
+		rewardQuotaMin, rewardQuotaMax := resolveGrowthRewardQuotaRange(item)
+		rewardQuota := rewardQuotaMin
 		if rewardQuota <= 0 && item.Code != model.GrowthRewardItemDailyCheckin {
 			continue
 		}
@@ -138,6 +161,8 @@ func ListGrowthRewardItemsForUser(userId int) ([]*GrowthRewardItemStatus, error)
 		items = append(items, &GrowthRewardItemStatus{
 			GrowthRewardItem: item,
 			RewardQuota:      rewardQuota,
+			RewardQuotaMin:   rewardQuotaMin,
+			RewardQuotaMax:   rewardQuotaMax,
 			Status:           status,
 			Claimable:        claimable,
 			Reason:           reason,
@@ -162,7 +187,7 @@ func shouldHideGrowthRewardItem(item *model.GrowthRewardItem, growthSetting *ope
 	return !growthSetting.Enabled
 }
 
-func ClaimGrowthRewardItem(userId int, code string) (*model.GrowthReward, error) {
+func ClaimGrowthRewardItem(userId int, code string, password string) (*model.GrowthReward, error) {
 	item, err := getGrowthRewardItem(code)
 	if err != nil {
 		return nil, err
@@ -172,6 +197,9 @@ func ClaimGrowthRewardItem(userId int, code string) (*model.GrowthReward, error)
 	}
 	if item.ItemType != model.GrowthRewardItemTypeAuto {
 		return nil, errors.New("this reward item requires submission review")
+	}
+	if err := validateGrowthRewardClaimPassword(item, password); err != nil {
+		return nil, err
 	}
 
 	if item.Code == model.GrowthRewardItemDailyCheckin {
@@ -409,32 +437,46 @@ func getGrowthRewardItem(code string) (*model.GrowthRewardItem, error) {
 }
 
 func resolveGrowthRewardQuota(item *model.GrowthRewardItem) int {
+	minQuota, _ := resolveGrowthRewardQuotaRange(item)
+	return minQuota
+}
+
+func resolveGrowthRewardQuotaRange(item *model.GrowthRewardItem) (int, int) {
 	if item.RewardQuota > 0 {
-		return item.RewardQuota
+		return item.RewardQuota, item.RewardQuota
 	}
 	setting := operation_setting.GetGrowthSetting()
 	switch item.Code {
 	case model.GrowthRewardItemDailyCheckin:
 		checkinSetting := operation_setting.GetCheckinSetting()
 		if checkinSetting.Enabled {
-			return checkinSetting.MinQuota
+			return normalizeRewardQuotaRange(checkinSetting.MinQuota, checkinSetting.MaxQuota)
 		}
-		return 0
+		return 0, 0
 	case model.GrowthRewardItemCreateFirstAPIKey:
-		return setting.FirstAPIKeyRewardQuota
+		return setting.FirstAPIKeyRewardQuota, setting.FirstAPIKeyRewardQuota
 	case model.GrowthRewardItemFirstAPIRequest:
-		return setting.FirstAPIRequestRewardQuota
+		return setting.FirstAPIRequestRewardQuota, setting.FirstAPIRequestRewardQuota
 	case model.GrowthRewardItemFirstTopUp:
-		return setting.FirstTopUpRewardQuota
+		return setting.FirstTopUpRewardQuota, setting.FirstTopUpRewardQuota
 	case model.GrowthRewardItemThreeDayUsage:
-		return setting.ThreeDayUsageRewardQuota
+		return setting.ThreeDayUsageRewardQuota, setting.ThreeDayUsageRewardQuota
 	case model.GrowthRewardItemMonthlySpendTarget:
-		return setting.MonthlySpendRewardQuota
-	case model.GrowthRewardItemContentPublish, model.GrowthRewardItemBacklinkSubmission, model.GrowthRewardItemJoinCommunity:
-		return setting.SubmissionMinRewardQuota
+		return setting.MonthlySpendRewardQuota, setting.MonthlySpendRewardQuota
+	case model.GrowthRewardItemContentPublish, model.GrowthRewardItemBacklinkSubmission:
+		return normalizeRewardQuotaRange(setting.SubmissionMinRewardQuota, setting.SubmissionMaxRewardQuota)
+	case model.GrowthRewardItemJoinCommunity:
+		return setting.SubmissionMinRewardQuota, setting.SubmissionMinRewardQuota
 	default:
-		return 0
+		return 0, 0
 	}
+}
+
+func normalizeRewardQuotaRange(minQuota int, maxQuota int) (int, int) {
+	if maxQuota <= 0 || maxQuota < minQuota {
+		return minQuota, minQuota
+	}
+	return minQuota, maxQuota
 }
 
 func rewardItemCompleted(userId int, item *model.GrowthRewardItem) (bool, error) {
@@ -467,9 +509,21 @@ func canClaimAutoRewardItem(userId int, item *model.GrowthRewardItem) (bool, str
 			Where("user_id = ? AND status = ?", userId, common.TopUpStatusSuccess).
 			Count(&count).Error
 		return count > 0, "Complete your first top-up first", err
+	case model.GrowthRewardItemJoinCommunity:
+		return true, "", nil
 	default:
 		return false, "This automatic reward item is not available yet", nil
 	}
+}
+
+func validateGrowthRewardClaimPassword(item *model.GrowthRewardItem, password string) error {
+	if item.Code != model.GrowthRewardItemJoinCommunity || item.ClaimPassword == "" {
+		return nil
+	}
+	if strings.TrimSpace(password) != strings.TrimSpace(item.ClaimPassword) {
+		return errors.New("Invalid task password")
+	}
+	return nil
 }
 
 func claimDailyCheckin(userId int, item *model.GrowthRewardItem) (*model.GrowthReward, error) {

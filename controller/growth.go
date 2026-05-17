@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"errors"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -11,14 +13,20 @@ import (
 )
 
 type adminGrowthRewardItemRequest struct {
-	Code        string `json:"code"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	RewardQuota int    `json:"reward_quota"`
-	ItemType    string `json:"item_type"`
-	Enabled     bool   `json:"enabled"`
-	OncePerUser bool   `json:"once_per_user"`
-	DailyLimit  int    `json:"daily_limit"`
+	Code          string  `json:"code"`
+	Title         string  `json:"title"`
+	Description   string  `json:"description"`
+	RewardQuota   int     `json:"reward_quota"`
+	ItemType      string  `json:"item_type"`
+	ActionURL     string  `json:"action_url"`
+	ClaimPassword *string `json:"claim_password"`
+	Enabled       bool    `json:"enabled"`
+	OncePerUser   bool    `json:"once_per_user"`
+	DailyLimit    int     `json:"daily_limit"`
+}
+
+type claimGrowthRewardItemRequest struct {
+	Password string `json:"password"`
 }
 
 type rejectGrowthSubmissionRequest struct {
@@ -44,7 +52,14 @@ func GetGrowthRewardItems(c *gin.Context) {
 }
 
 func ClaimGrowthRewardItem(c *gin.Context) {
-	reward, err := service.ClaimGrowthRewardItem(c.GetInt("id"), c.Param("code"))
+	var req claimGrowthRewardItemRequest
+	if c.Request.ContentLength != 0 {
+		if err := c.ShouldBindJSON(&req); err != nil && !errors.Is(err, io.EOF) {
+			common.ApiError(c, err)
+			return
+		}
+	}
+	reward, err := service.ClaimGrowthRewardItem(c.GetInt("id"), c.Param("code"), req.Password)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -115,9 +130,13 @@ func AdminCreateGrowthRewardItem(c *gin.Context) {
 		Description: req.Description,
 		RewardQuota: req.RewardQuota,
 		ItemType:    req.ItemType,
+		ActionURL:   req.ActionURL,
 		Enabled:     req.Enabled,
 		OncePerUser: req.OncePerUser,
 		DailyLimit:  req.DailyLimit,
+	}
+	if req.ClaimPassword != nil {
+		item.ClaimPassword = *req.ClaimPassword
 	}
 	if err := model.DB.Create(item).Error; err != nil {
 		common.ApiError(c, err)
@@ -147,6 +166,10 @@ func AdminUpdateGrowthRewardItem(c *gin.Context) {
 	item.Description = req.Description
 	item.RewardQuota = req.RewardQuota
 	item.ItemType = req.ItemType
+	item.ActionURL = req.ActionURL
+	if req.ClaimPassword != nil {
+		item.ClaimPassword = *req.ClaimPassword
+	}
 	item.Enabled = req.Enabled
 	item.OncePerUser = req.OncePerUser
 	item.DailyLimit = req.DailyLimit

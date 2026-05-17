@@ -45,6 +45,8 @@ const schema = z.object({
   monthlySpendRewardQuota: z.coerce.number().int().min(0),
   monthlySpendTargetQuota: z.coerce.number().int().min(0),
   inviteRebatePercentage: z.coerce.number().min(0),
+  inviteFirstRequestRewardQuota: z.coerce.number().int().min(0),
+  inviteFirstTopUpRewardQuota: z.coerce.number().int().min(0),
   rebateFreezeDays: z.coerce.number().int().min(0),
   userDailyRewardLimitQuota: z.coerce.number().int().min(0),
   siteDailyBudgetQuota: z.coerce.number().int().min(0),
@@ -65,6 +67,9 @@ const optionKeys: Record<keyof Values, string> = {
   monthlySpendRewardQuota: 'growth_setting.monthly_spend_reward_quota',
   monthlySpendTargetQuota: 'growth_setting.monthly_spend_target_quota',
   inviteRebatePercentage: 'growth_setting.invite_rebate_percentage',
+  inviteFirstRequestRewardQuota:
+    'growth_setting.invite_first_request_reward_quota',
+  inviteFirstTopUpRewardQuota: 'growth_setting.invite_first_topup_reward_quota',
   rebateFreezeDays: 'growth_setting.rebate_freeze_days',
   userDailyRewardLimitQuota: 'growth_setting.user_daily_reward_limit_quota',
   siteDailyBudgetQuota: 'growth_setting.site_daily_budget_quota',
@@ -118,7 +123,19 @@ const controlFields: Array<{
   {
     name: 'inviteRebatePercentage',
     label: 'Invitation rebate percentage',
-    description: 'Percentage used for future invitation rebate rules.',
+    description: 'Percentage awarded to inviters from invited user top-ups.',
+  },
+  {
+    name: 'inviteFirstRequestRewardQuota',
+    label: 'Inviter first request reward',
+    description:
+      'Quota awarded to the inviter when an invited user completes the first API request.',
+  },
+  {
+    name: 'inviteFirstTopUpRewardQuota',
+    label: 'Inviter first top-up reward',
+    description:
+      'Quota awarded to the inviter when an invited user completes the first top-up.',
   },
   {
     name: 'rebateFreezeDays',

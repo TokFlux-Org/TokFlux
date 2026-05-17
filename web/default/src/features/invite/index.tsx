@@ -32,8 +32,12 @@ type InvitationRebate = {
   invitee_name?: string
   trade_no?: string
   top_up_money?: number | string
+  payment_method?: string
+  payment_provider?: string
+  rebate_percentage?: number | string
   rebate_amount?: number | string
   rebate_quota?: number | string
+  settle_after?: number | string
   status?: string
   created_at?: number | string
   settled_at?: number | string
@@ -67,6 +71,18 @@ function formatTimestamp(value: number | string | undefined) {
 function formatQuotaValue(value: number | string | undefined) {
   const quota = Number.parseInt(String(value ?? 0), 10)
   return formatQuota(Number.isFinite(quota) ? quota : 0)
+}
+
+function formatPercentage(value: number | string | undefined) {
+  const percentage = Number.parseFloat(String(value ?? 0))
+  if (!Number.isFinite(percentage)) return '0%'
+  return `${percentage.toFixed(2).replace(/\.?0+$/, '')}%`
+}
+
+function formatPayment(record: InvitationRebate) {
+  return [record.payment_provider, record.payment_method]
+    .filter(Boolean)
+    .join(' / ')
 }
 
 export function Invite() {
@@ -215,6 +231,8 @@ export function Invite() {
                               <div className='text-muted-foreground truncate text-xs'>
                                 {t('Top-up')}:{' '}
                                 {formatMoney(record.top_up_money)}
+                                {' | '}
+                                {t('Rate')}: {formatPercentage(record.rebate_percentage)}
                               </div>
                             </div>
                             <span className='text-muted-foreground text-xs'>
@@ -229,9 +247,17 @@ export function Invite() {
                               {t('Quota')}:{' '}
                               {formatQuotaValue(record.rebate_quota)}
                             </span>
+                            {formatPayment(record) ? (
+                              <span className='text-muted-foreground'>
+                                {t('Payment')}: {formatPayment(record)}
+                              </span>
+                            ) : null}
                           </div>
                           <div className='text-muted-foreground text-xs'>
                             {t('Created')}: {formatTimestamp(record.created_at)}
+                            {' | '}
+                            {t('Settle after')}:{' '}
+                            {formatTimestamp(record.settle_after)}
                             {' | '}
                             {t('Settled')}: {formatTimestamp(record.settled_at)}
                           </div>

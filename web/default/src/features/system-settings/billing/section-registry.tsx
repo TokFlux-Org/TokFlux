@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { parseCurrencyDisplayType } from '@/lib/currency'
 import { CheckinSettingsSection } from '../general/checkin-settings-section'
 import { GrowthSettingsSection } from '../general/growth-settings-section'
+import { GrowthSubmissionsReviewSection } from '../general/growth-submissions-review-section'
 import { PricingSection } from '../general/pricing-section'
 import { QuotaSettingsSection } from '../general/quota-settings-section'
 import { PaymentSettingsSection } from '../integrations/payment-settings-section'
@@ -240,6 +241,10 @@ const BILLING_SECTIONS = [
             settings['growth_setting.monthly_spend_target_quota'],
           inviteRebatePercentage:
             settings['growth_setting.invite_rebate_percentage'],
+          inviteFirstRequestRewardQuota:
+            settings['growth_setting.invite_first_request_reward_quota'],
+          inviteFirstTopUpRewardQuota:
+            settings['growth_setting.invite_first_topup_reward_quota'],
           rebateFreezeDays: settings['growth_setting.rebate_freeze_days'],
           userDailyRewardLimitQuota:
             settings['growth_setting.user_daily_reward_limit_quota'],
@@ -251,6 +256,18 @@ const BILLING_SECTIONS = [
           submissionMaxRewardQuota:
             settings['growth_setting.submission_max_reward_quota'],
         }}
+      />
+    ),
+  },
+  {
+    id: 'growth-reviews',
+    titleKey: 'Content Reward Reviews',
+    descriptionKey: 'Review promotion proof submissions and settle rewards.',
+    build: (settings: BillingSettings) => (
+      <GrowthSubmissionsReviewSection
+        defaultRewardQuota={
+          settings['growth_setting.submission_min_reward_quota']
+        }
       />
     ),
   },

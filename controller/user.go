@@ -434,6 +434,21 @@ func GetAffRebates(c *gin.Context) {
 	common.ApiSuccess(c, pageInfo)
 }
 
+func GetAffRewards(c *gin.Context) {
+	id := c.GetInt("id")
+	pageInfo := common.GetPageQuery(c)
+
+	records, total, err := model.GetUserInvitationRewardRecords(id, pageInfo)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(records)
+	common.ApiSuccess(c, pageInfo)
+}
+
 func GetSelf(c *gin.Context) {
 	id := c.GetInt("id")
 	userRole := c.GetInt("role")

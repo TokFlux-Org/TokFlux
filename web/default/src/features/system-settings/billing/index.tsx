@@ -120,6 +120,8 @@ const defaultBillingSettings: BillingSettings = {
   'growth_setting.monthly_spend_reward_quota': 10000,
   'growth_setting.monthly_spend_target_quota': 500000,
   'growth_setting.invite_rebate_percentage': 0,
+  'growth_setting.invite_first_request_reward_quota': 0,
+  'growth_setting.invite_first_topup_reward_quota': 0,
   'growth_setting.rebate_freeze_days': 7,
   'growth_setting.user_daily_reward_limit_quota': 0,
   'growth_setting.site_daily_budget_quota': 0,

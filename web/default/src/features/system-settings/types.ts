@@ -281,6 +281,8 @@ export type BillingSettings = {
   'growth_setting.monthly_spend_reward_quota': number
   'growth_setting.monthly_spend_target_quota': number
   'growth_setting.invite_rebate_percentage': number
+  'growth_setting.invite_first_request_reward_quota': number
+  'growth_setting.invite_first_topup_reward_quota': number
   'growth_setting.rebate_freeze_days': number
   'growth_setting.user_daily_reward_limit_quota': number
   'growth_setting.site_daily_budget_quota': number

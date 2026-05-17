@@ -16,49 +16,42 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   BadgeCheck,
   BookOpenText,
+  Check,
   Coins,
   Copy,
-  FileText,
   Gift,
   LinkIcon,
   Megaphone,
   MessageSquareText,
   RefreshCw,
-  Send,
   ShieldCheck,
   Sparkles,
+  Zap,
   Users,
   Wallet,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 import { api, getSelf } from '@/lib/api'
 import { formatQuota } from '@/lib/format'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
-import { useStatus } from '@/hooks/use-status'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Textarea } from '@/components/ui/textarea'
 import { CopyButton } from '@/components/copy-button'
 import { SectionPageLayout } from '@/components/layout'
 import {
   formatTime,
   getItems,
-  rewardItemCopy,
-  statusVariant,
-  type GrowthRewardItem,
-  type GrowthSubmission,
   type GrowthSummary,
   type InvitationRebate,
   type InvitationRecord,
+  statusVariant,
 } from '@/features/growth/shared'
 import { TransferDialog } from '@/features/wallet/components/dialogs/transfer-dialog'
 import { useAffiliate } from '@/features/wallet/hooks'
@@ -94,7 +87,6 @@ const PROMOTION_RULES = [
   'Self-invites, abnormal same-device registrations, refunded orders, and risk-control orders do not generate valid rebates.',
   'Rebates enter pending settlement first and can be transferred to balance after settlement.',
   'Early promotion rewards only support transfer to site balance and do not support withdrawal.',
-  'Content promotion rewards require manual review before they are issued.',
 ] as const
 
 const STATUS_GUIDE = [
@@ -105,41 +97,43 @@ const STATUS_GUIDE = [
   ['settled', 'Settled and ready to transfer to site balance.'],
   ['transferred', 'Already transferred to site balance.'],
   ['frozen', 'Temporarily frozen because the account or order needs review.'],
+  ['reversed', 'Reversed because the related order was refunded.'],
   ['rejected', 'Rejected because it does not meet promotion rules.'],
 ] as const
 
+function formatPercentage(value: number | string | undefined) {
+  const percentage = Number.parseFloat(String(value ?? 0))
+  if (!Number.isFinite(percentage)) return '0%'
+  return `${percentage.toFixed(2).replace(/\.?0+$/, '')}%`
+}
+
+function getRebateActionLabel(rebate: InvitationRebate) {
+  if (!rebate.reward_type) return 'Ongoing rebate'
+  if (rebate.reward_type === 'register') return 'Registered'
+  if (rebate.reward_type === 'first_request') return 'First API request reward'
+  if (rebate.reward_type === 'first_topup') return 'First top-up reward'
+  return rebate.reward_type
+}
+
 export function PromotionCenter() {
   const { t } = useTranslation()
-  const { status } = useStatus()
   const { copyToClipboard } = useCopyToClipboard()
   const [summary, setSummary] = useState<GrowthSummary | null>(null)
   const [user, setUser] = useState<UserWalletData | null>(null)
-  const [rewardItems, setRewardItems] = useState<GrowthRewardItem[]>([])
-  const [submissions, setSubmissions] = useState<GrowthSubmission[]>([])
   const [inviteRecords, setInviteRecords] = useState<InvitationRecord[]>([])
   const [rebates, setRebates] = useState<InvitationRebate[]>([])
   const [loading, setLoading] = useState(true)
-  const [submissionCode, setSubmissionCode] = useState('')
-  const [submissionPlatform, setSubmissionPlatform] = useState('')
-  const [submissionUrl, setSubmissionUrl] = useState('')
-  const [submissionRemark, setSubmissionRemark] = useState('')
-  const [submitting, setSubmitting] = useState(false)
   const [transferOpen, setTransferOpen] = useState(false)
   const { affiliateCode, affiliateLink, transferQuota, transferring } =
     useAffiliate()
 
-  const promotionItems = useMemo(
-    () =>
-      rewardItems.filter(
-        (item) => item.item_type !== 'auto' && item.status !== 'completed'
-      ),
-    [rewardItems]
-  )
-
   const effectiveCustomers = useMemo(
     () =>
       inviteRecords.filter(
-        (record) => Number(record.total_contribution_rebate || 0) > 0
+        (record) =>
+          record.first_request_completed ||
+          record.first_topup_completed ||
+          Number(record.total_contribution_rebate || 0) > 0
       ).length,
     [inviteRecords]
   )
@@ -148,7 +142,11 @@ export function PromotionCenter() {
     () =>
       rebates
         .filter((rebate) => rebate.status === 'pending')
-        .reduce((sum, rebate) => sum + Number(rebate.rebate_quota || 0), 0),
+        .reduce(
+          (sum, rebate) =>
+            sum + Number(rebate.rebate_quota || rebate.reward_quota || 0),
+          0
+        ),
     [rebates]
   )
 
@@ -158,26 +156,27 @@ export function PromotionCenter() {
       const [
         userRes,
         summaryRes,
-        rewardItemsRes,
-        submissionsRes,
         inviteRecordsRes,
         rebatesRes,
+        rewardsRes,
       ] = await Promise.all([
         getSelf(),
         api.get('/api/growth/summary'),
-        api.get('/api/growth/items'),
-        api.get('/api/growth/submissions', { params: { page_size: 20 } }),
         api.get('/api/user/aff/records', { params: { page_size: 20 } }),
         api.get('/api/user/aff/rebates', { params: { page_size: 20 } }),
+        api.get('/api/user/aff/rewards', { params: { page_size: 20 } }),
       ])
       if (userRes.success && userRes.data) {
         setUser(userRes.data as UserWalletData)
       }
       setSummary(summaryRes.data?.data || null)
-      setRewardItems(rewardItemsRes.data?.data || [])
-      setSubmissions(getItems<GrowthSubmission>(submissionsRes.data))
       setInviteRecords(getItems<InvitationRecord>(inviteRecordsRes.data))
-      setRebates(getItems<InvitationRebate>(rebatesRes.data))
+      setRebates(
+        [
+          ...getItems<InvitationRebate>(rebatesRes.data),
+          ...getItems<InvitationRebate>(rewardsRes.data),
+        ].sort((a, b) => Number(b.created_at || 0) - Number(a.created_at || 0))
+      )
     } finally {
       setLoading(false)
     }
@@ -187,47 +186,8 @@ export function PromotionCenter() {
     loadData()
   }, [loadData])
 
-  const rewardItemTitle = useCallback(
-    (itemOrCode: GrowthRewardItem | string) => {
-      const code = typeof itemOrCode === 'string' ? itemOrCode : itemOrCode.code
-      const fallback =
-        typeof itemOrCode === 'string' ? itemOrCode : itemOrCode.title
-      return t(rewardItemCopy[code]?.title || fallback)
-    },
-    [t]
-  )
-
-  const rewardItemDescription = useCallback(
-    (item: GrowthRewardItem) =>
-      t(rewardItemCopy[item.code]?.description || item.description),
-    [t]
-  )
-
   const copyTemplate = async (template: string) => {
     await copyToClipboard(t(template, { link: affiliateLink || '-' }))
-  }
-
-  const submitProof = async () => {
-    if (!submissionCode || !submissionUrl) return
-    try {
-      setSubmitting(true)
-      const res = await api.post('/api/growth/submissions', {
-        item_code: submissionCode,
-        platform: submissionPlatform,
-        url: submissionUrl,
-        remark: submissionRemark,
-      })
-      if (res.data?.success) {
-        toast.success(t('Submission created'))
-        setSubmissionCode('')
-        setSubmissionPlatform('')
-        setSubmissionUrl('')
-        setSubmissionRemark('')
-        await loadData()
-      }
-    } finally {
-      setSubmitting(false)
-    }
   }
 
   const handleTransfer = async (quota: number) => {
@@ -264,9 +224,7 @@ export function PromotionCenter() {
           {t('Promotion Center')}
         </SectionPageLayout.Title>
         <SectionPageLayout.Description>
-          {t(
-            'A promotion workspace for referral links, content rewards, rebate records, and customer conversion.'
-          )}
+          {t('Manage your referral link, rewards, and rebate records.')}
         </SectionPageLayout.Description>
         <SectionPageLayout.Actions>
           <Button
@@ -281,8 +239,8 @@ export function PromotionCenter() {
           </Button>
         </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
-          <div className='mx-auto grid w-full max-w-7xl gap-4 xl:grid-cols-[360px_minmax(0,1fr)]'>
-            <aside className='grid h-fit gap-3 xl:sticky xl:top-4'>
+          <div className='mx-auto grid w-full max-w-7xl items-start gap-4 xl:grid-cols-[360px_minmax(0,1fr)]'>
+            <aside className='grid gap-3 xl:sticky xl:top-0 xl:self-start'>
               <Card>
                 <CardHeader className='pb-2'>
                   <CardTitle className='flex items-center gap-2 text-base'>
@@ -372,44 +330,15 @@ export function PromotionCenter() {
 
               <InfoCard
                 icon={BookOpenText}
-                title={t('What promotion rewards can do')}
+                title={t('Quick notes')}
                 items={[
                   t(
-                    'Referral rebates can be transferred to site balance after settlement.'
-                  ),
-                  t('Balance can be used for API calls and model usage.'),
-                  t(
-                    'Content rewards encourage tutorials, videos, backlinks, and useful external exposure.'
+                    'Settled rebates can be transferred to site balance for API usage.'
                   ),
                   t(
                     'Promotion records help you track customers, rebates, and review progress.'
                   ),
                 ]}
-              />
-
-              <InfoCard
-                icon={Sparkles}
-                title={t('How to earn promotion rewards')}
-                items={[
-                  t(
-                    'Share your referral link in tutorials, videos, communities, or documents.'
-                  ),
-                  t(
-                    'Guide new users to register, create an API key, and complete the first successful request.'
-                  ),
-                  t(
-                    'Referred users generate rebates after valid usage or payments.'
-                  ),
-                  t(
-                    'Submit content promotion proof and wait for manual review.'
-                  ),
-                ]}
-              />
-
-              <InfoCard
-                icon={Megaphone}
-                title={t('Excellent promotion examples')}
-                items={PROMOTION_CASES.map((item) => t(item))}
               />
             </aside>
 
@@ -437,7 +366,7 @@ export function PromotionCenter() {
                     </h2>
                     <p className='text-muted-foreground text-sm leading-6'>
                       {t(
-                        'Users who register through your link become your promotion customers. Qualified usage and payments generate rebates, while high-quality tutorials, videos, and backlinks can receive additional promotion rewards.'
+                        'Users who register through your link become your promotion customers. When they complete valid usage or payments, eligible rebates enter settlement and can later be transferred to your account balance.'
                       )}
                     </p>
                   </div>
@@ -462,18 +391,6 @@ export function PromotionCenter() {
                       </div>
                     ))}
                   </div>
-
-                  <div className='rounded-lg border p-3'>
-                    <div className='mb-2 flex items-center gap-2 text-sm font-medium'>
-                      <ShieldCheck className='text-muted-foreground size-4' />
-                      {t('Promotion rules')}
-                    </div>
-                    <ol className='text-muted-foreground list-decimal space-y-1.5 ps-5 text-xs leading-5'>
-                      {PROMOTION_RULES.map((rule) => (
-                        <li key={rule}>{t(rule)}</li>
-                      ))}
-                    </ol>
-                  </div>
                 </CardContent>
               </Card>
 
@@ -486,35 +403,27 @@ export function PromotionCenter() {
                         <TabsTrigger value='info'>
                           {t('Promotion info')}
                         </TabsTrigger>
-                        <TabsTrigger value='content'>
-                          {t('Content rewards')}
-                        </TabsTrigger>
                         <TabsTrigger value='rebates'>
                           {t('Rebate details')}
                         </TabsTrigger>
                         <TabsTrigger value='customers'>
                           {t('My customers')}
                         </TabsTrigger>
-                        <TabsTrigger value='submissions'>
-                          {t('My submissions')}
-                        </TabsTrigger>
                       </TabsList>
                     </div>
                   </CardHeader>
-                  <CardContent className='p-4 sm:p-5'>
+                  <CardContent className='min-h-[560px] p-4 sm:p-5'>
                     <TabsContent value='info' className='m-0 space-y-5'>
-                      <div className='grid gap-3 lg:grid-cols-2'>
-                        <FieldWithCopy
-                          label={t('Promotion link')}
-                          value={affiliateLink}
-                          tooltip={t('Copy referral link')}
-                        />
-                        <FieldWithCopy
-                          label={t('Referral code')}
-                          value={affiliateCode || summary?.aff_code || '-'}
-                          tooltip={t('Copy referral code')}
-                        />
-                      </div>
+                      <SectionBlock
+                        icon={ShieldCheck}
+                        title={t('Promotion rules')}
+                      >
+                        <ol className='text-muted-foreground list-decimal space-y-1.5 ps-5 text-sm leading-6'>
+                          {PROMOTION_RULES.map((rule) => (
+                            <li key={rule}>{t(rule)}</li>
+                          ))}
+                        </ol>
+                      </SectionBlock>
 
                       <SectionBlock
                         icon={Sparkles}
@@ -588,121 +497,14 @@ export function PromotionCenter() {
                       </SectionBlock>
                     </TabsContent>
 
-                    <TabsContent value='content' className='m-0 space-y-4'>
-                      <p className='text-muted-foreground text-sm leading-6'>
-                        {status?.growth_submission_enabled === true
-                          ? t(
-                              'Publish tutorials, videos, backlinks, or directory listings, then submit the URL for review. Approved submissions receive rewards according to site rules.'
-                            )
-                          : t(
-                              'The referral link remains available, but content promotion proof cannot be submitted right now.'
-                            )}
-                      </p>
-                      <div className='space-y-3'>
-                        {promotionItems.length > 0 ? (
-                          promotionItems.map((item) => (
-                            <button
-                              type='button'
-                              key={item.code}
-                              onClick={() => setSubmissionCode(item.code)}
-                              className='bg-background hover:bg-muted/40 grid w-full gap-3 rounded-lg border p-4 text-start transition-colors md:grid-cols-[minmax(0,1fr)_auto] md:items-start'
-                            >
-                              <div className='min-w-0 space-y-2'>
-                                <div className='flex flex-wrap items-center gap-2'>
-                                  <h3 className='text-sm font-semibold'>
-                                    {rewardItemTitle(item)}
-                                  </h3>
-                                  <Badge variant={statusVariant(item.status)}>
-                                    {t(item.status)}
-                                  </Badge>
-                                </div>
-                                <p className='text-muted-foreground text-xs leading-5'>
-                                  {rewardItemDescription(item)}
-                                </p>
-                                {item.reason ? (
-                                  <p className='text-muted-foreground text-xs'>
-                                    {t(item.reason)}
-                                  </p>
-                                ) : null}
-                              </div>
-                              <div className='text-right text-sm font-semibold tabular-nums'>
-                                {formatQuota(item.reward_quota || 0)}
-                              </div>
-                            </button>
-                          ))
-                        ) : (
-                          <EmptyText text={t('No promotion items')} />
-                        )}
-                      </div>
-
-                      <div className='rounded-lg border p-4'>
-                        <div className='mb-3 flex items-center gap-2 text-sm font-semibold'>
-                          <FileText className='text-muted-foreground size-4' />
-                          {t('Submit Promotion Proof')}
-                        </div>
-                        <div className='grid gap-3'>
-                          <select
-                            value={submissionCode}
-                            onChange={(event) =>
-                              setSubmissionCode(event.target.value)
-                            }
-                            className='border-input bg-background h-9 rounded-md border px-3 text-sm'
-                          >
-                            <option value=''>
-                              {t('Select a promotion item')}
-                            </option>
-                            {promotionItems.map((item) => (
-                              <option key={item.code} value={item.code}>
-                                {rewardItemTitle(item)}
-                              </option>
-                            ))}
-                          </select>
-                          <Input
-                            value={submissionPlatform}
-                            onChange={(event) =>
-                              setSubmissionPlatform(event.target.value)
-                            }
-                            placeholder={t('Platform')}
-                          />
-                          <Input
-                            value={submissionUrl}
-                            onChange={(event) =>
-                              setSubmissionUrl(event.target.value)
-                            }
-                            placeholder={t('Content URL')}
-                          />
-                          <Textarea
-                            value={submissionRemark}
-                            onChange={(event) =>
-                              setSubmissionRemark(event.target.value)
-                            }
-                            placeholder={t('Remark')}
-                          />
-                          <Button
-                            type='button'
-                            onClick={submitProof}
-                            disabled={
-                              status?.growth_submission_enabled !== true ||
-                              !submissionCode ||
-                              !submissionUrl ||
-                              submitting
-                            }
-                          >
-                            <Send className='size-4' />
-                            {t('Submit for Review')}
-                          </Button>
-                        </div>
-                      </div>
-                    </TabsContent>
-
                     <TabsContent value='rebates' className='m-0 space-y-4'>
                       <StatusGuide />
                       <div className='divide-y rounded-lg border'>
                         {rebates.length > 0 ? (
                           rebates.map((rebate) => (
                             <div
-                              key={rebate.id}
-                              className='grid gap-2 p-3 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center'
+                              key={`${rebate.reward_type || 'rebate'}-${rebate.id}`}
+                              className='grid gap-2 p-3 md:grid-cols-[minmax(0,1fr)_auto_auto_auto] md:items-center'
                             >
                               <div className='min-w-0'>
                                 <div className='truncate text-sm font-medium'>
@@ -711,17 +513,47 @@ export function PromotionCenter() {
                                       ? `#${rebate.invitee_id}`
                                       : '-')}
                                 </div>
-                                <div className='text-muted-foreground mt-1 text-xs'>
-                                  {formatTime(rebate.created_at)}
+                                <div className='text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs'>
+                                  <span>{formatTime(rebate.created_at)}</span>
+                                  {rebate.top_up_money ? (
+                                    <span>
+                                      {t('Top-up')}:{' '}
+                                      {Number(rebate.top_up_money || 0).toFixed(2)}
+                                    </span>
+                                  ) : null}
+                                  {rebate.rebate_percentage ? (
+                                    <span>
+                                      {t('Rate')}:{' '}
+                                      {formatPercentage(rebate.rebate_percentage)}
+                                    </span>
+                                  ) : null}
+                                  {rebate.payment_provider ? (
+                                    <span>
+                                      {t('Payment')}: {rebate.payment_provider}
+                                    </span>
+                                  ) : null}
+                                  {rebate.status === 'pending' ? (
+                                    <span>
+                                      {t('Settle after')}:{' '}
+                                      {formatTime(rebate.settle_after)}
+                                    </span>
+                                  ) : null}
                                 </div>
                               </div>
-                              <Badge
-                                variant={statusVariant(rebate.status || '')}
-                              >
+                              <Badge variant='outline'>
+                                {t(getRebateActionLabel(rebate))}
+                              </Badge>
+                              <Badge variant={statusVariant(rebate.status || '')}>
                                 {t(rebate.status || '-')}
                               </Badge>
                               <div className='text-sm font-semibold tabular-nums'>
-                                {formatQuota(Number(rebate.rebate_quota || 0))}
+                                {formatQuota(
+                                  Number(
+                                    rebate.rebate_quota ||
+                                      rebate.reward_quota ||
+                                      0
+                                  )
+                                )}
                               </div>
                             </div>
                           ))
@@ -731,32 +563,14 @@ export function PromotionCenter() {
                       </div>
                     </TabsContent>
 
-                    <TabsContent value='customers' className='m-0'>
-                      <div className='divide-y rounded-lg border'>
+                    <TabsContent value='customers' className='m-0 space-y-3'>
+                      <div className='grid gap-3'>
                         {inviteRecords.length > 0 ? (
                           inviteRecords.map((record) => (
-                            <div
+                            <CustomerJourneyCard
                               key={record.user_id}
-                              className='grid gap-2 p-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center'
-                            >
-                              <div className='min-w-0'>
-                                <div className='truncate text-sm font-medium'>
-                                  {record.display_name ||
-                                    record.username ||
-                                    '-'}
-                                </div>
-                                {record.display_name && record.username ? (
-                                  <div className='text-muted-foreground mt-1 truncate text-xs'>
-                                    @{record.username}
-                                  </div>
-                                ) : null}
-                              </div>
-                              <div className='text-sm font-semibold tabular-nums'>
-                                {formatQuota(
-                                  Number(record.total_contribution_rebate || 0)
-                                )}
-                              </div>
-                            </div>
+                              record={record}
+                            />
                           ))
                         ) : (
                           <EmptyText text={t('No referral records')} />
@@ -764,38 +578,6 @@ export function PromotionCenter() {
                       </div>
                     </TabsContent>
 
-                    <TabsContent value='submissions' className='m-0'>
-                      <div className='divide-y rounded-lg border'>
-                        {submissions.length > 0 ? (
-                          submissions.map((submission) => (
-                            <div
-                              key={submission.id}
-                              className='grid gap-2 p-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center'
-                            >
-                              <div className='min-w-0'>
-                                <div className='truncate text-sm font-medium'>
-                                  {rewardItemTitle(submission.item_code)}
-                                </div>
-                                <div className='text-muted-foreground mt-1 truncate text-xs'>
-                                  {submission.platform || '-'} ·{' '}
-                                  {formatTime(submission.created_at)}
-                                </div>
-                                {submission.review_note ? (
-                                  <div className='text-muted-foreground mt-1 text-xs'>
-                                    {submission.review_note}
-                                  </div>
-                                ) : null}
-                              </div>
-                              <Badge variant={statusVariant(submission.status)}>
-                                {t(submission.status)}
-                              </Badge>
-                            </div>
-                          ))
-                        ) : (
-                          <EmptyText text={t('No submissions')} />
-                        )}
-                      </div>
-                    </TabsContent>
                   </CardContent>
                 </Tabs>
               </Card>
@@ -912,6 +694,155 @@ function StatusGuide() {
           </p>
         </div>
       ))}
+    </div>
+  )
+}
+
+function CustomerJourneyCard({ record }: { record: InvitationRecord }) {
+  const { t } = useTranslation()
+  const displayName = record.display_name || record.username || '-'
+  const userHandle =
+    record.display_name && record.username ? `@${record.username}` : `#${record.user_id}`
+  const firstRequestReward = Number(record.first_request_reward_quota || 0)
+  const firstTopUpReward = Number(record.first_topup_reward_quota || 0)
+  const registerRuleReward = Number(record.register_reward_quota || 0)
+  const firstRequestRuleReward = Number(
+    record.first_request_rule_reward_quota || firstRequestReward || 0
+  )
+  const firstTopUpRuleReward = Number(
+    record.first_topup_rule_reward_quota || firstTopUpReward || 0
+  )
+  const inviteRebatePercentage = Number(record.invite_rebate_percentage || 0)
+  const totalRebateQuota = Number(record.total_rebate_quota || 0)
+  const totalPromotionQuota =
+    firstRequestReward + firstTopUpReward + totalRebateQuota
+  const steps = [
+    {
+      key: 'registered',
+      label: t('Registered'),
+      done: true,
+      value: formatQuota(registerRuleReward),
+      configured: registerRuleReward > 0,
+    },
+    {
+      key: 'first_request',
+      label: t('First API request'),
+      done: Boolean(record.first_request_completed),
+      value: formatQuota(firstRequestRuleReward),
+      configured: firstRequestRuleReward > 0,
+    },
+    {
+      key: 'first_topup',
+      label: t('First top-up'),
+      done: Boolean(record.first_topup_completed),
+      value: formatQuota(firstTopUpRuleReward),
+      configured: firstTopUpRuleReward > 0,
+    },
+    {
+      key: 'rebate',
+      label: t('Ongoing rebate'),
+      done: totalRebateQuota > 0,
+      value: t('{{rate}}% rebate', { rate: inviteRebatePercentage }),
+      configured: inviteRebatePercentage > 0,
+    },
+  ].filter((step) => step.configured)
+  const stepGridColumnsClass =
+    {
+      1: 'sm:grid-cols-1',
+      2: 'sm:grid-cols-2',
+      3: 'sm:grid-cols-3',
+      4: 'sm:grid-cols-4',
+    }[steps.length] || 'sm:grid-cols-4'
+
+  return (
+    <div className='bg-card rounded-lg border p-3 shadow-xs sm:p-4'>
+      <div className='grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start'>
+        <div className='min-w-0'>
+          <div className='flex flex-wrap items-center gap-2'>
+            <div className='truncate text-sm font-semibold'>{displayName}</div>
+            <Badge variant='outline' className='font-mono text-[11px]'>
+              {userHandle}
+            </Badge>
+          </div>
+          <div className='text-muted-foreground mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs'>
+            <span>
+              {t('Top-up amount')}: {Number(record.total_topup_amount || 0).toFixed(2)}
+            </span>
+            <span>
+              {t('Requests')}: {record.request_count || 0}
+            </span>
+            <span>{formatTime(record.created_at)}</span>
+          </div>
+        </div>
+
+        <div className='grid grid-cols-2 gap-2 text-xs sm:grid-cols-3 lg:min-w-80'>
+          <JourneyMetric
+            label={t('Conversion rewards')}
+            value={formatQuota(firstRequestReward + firstTopUpReward)}
+          />
+          <JourneyMetric
+            label={t('Rebate contribution')}
+            value={formatQuota(totalRebateQuota)}
+          />
+          <JourneyMetric
+            label={t('Total contribution')}
+            value={formatQuota(totalPromotionQuota)}
+          />
+        </div>
+      </div>
+
+      {steps.length > 0 ? (
+        <div className='mt-4 flex justify-center'>
+          <div
+            className={[
+              'grid w-full gap-2 sm:w-5/6 md:w-4/5 xl:w-3/4',
+              stepGridColumnsClass,
+            ].join(' ')}
+          >
+            {steps.map((step, index) => (
+              <div
+                key={step.key}
+                className='relative grid grid-cols-[auto_minmax(0,1fr)] gap-2 sm:block'
+              >
+                {index > 0 ? (
+                  <div className='bg-border absolute top-4 right-[calc(50%+1rem)] left-[-50%] hidden h-px sm:block' />
+                ) : null}
+                <div
+                  className={[
+                    'relative z-10 flex size-8 items-center justify-center rounded-full border text-xs sm:mx-auto',
+                    step.done
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-muted text-muted-foreground',
+                  ].join(' ')}
+                >
+                  {step.done ? (
+                    <Check className='size-4' />
+                  ) : (
+                    <Zap className='size-4' />
+                  )}
+                </div>
+                <div className='min-w-0 sm:mt-2 sm:text-center'>
+                  <div className='truncate text-xs font-medium'>
+                    {step.label}
+                  </div>
+                  <div className='text-muted-foreground mt-0.5 truncate text-[11px]'>
+                    {step.value}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function JourneyMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className='bg-muted/20 rounded-lg border p-2'>
+      <div className='text-muted-foreground truncate'>{label}</div>
+      <div className='mt-1 truncate font-semibold tabular-nums'>{value}</div>
     </div>
   )
 }

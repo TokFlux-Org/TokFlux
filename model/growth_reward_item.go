@@ -26,17 +26,19 @@ const (
 )
 
 type GrowthRewardItem struct {
-	Id          int    `json:"id" gorm:"primaryKey"`
-	Code        string `json:"code" gorm:"type:varchar(64);uniqueIndex;not null"`
-	Title       string `json:"title" gorm:"type:varchar(128);not null"`
-	Description string `json:"description" gorm:"type:text"`
-	RewardQuota int    `json:"reward_quota" gorm:"default:0"`
-	ItemType    string `json:"item_type" gorm:"type:varchar(32);index;not null"`
-	Enabled     bool   `json:"enabled" gorm:"default:true;index"`
-	OncePerUser bool   `json:"once_per_user" gorm:"default:true"`
-	DailyLimit  int    `json:"daily_limit" gorm:"default:0"`
-	CreatedAt   int64  `json:"created_at" gorm:"bigint;index"`
-	UpdatedAt   int64  `json:"updated_at" gorm:"bigint;index"`
+	Id            int    `json:"id" gorm:"primaryKey"`
+	Code          string `json:"code" gorm:"type:varchar(64);uniqueIndex;not null"`
+	Title         string `json:"title" gorm:"type:varchar(128);not null"`
+	Description   string `json:"description" gorm:"type:text"`
+	RewardQuota   int    `json:"reward_quota" gorm:"default:0"`
+	ItemType      string `json:"item_type" gorm:"type:varchar(32);index;not null"`
+	ActionURL     string `json:"action_url,omitempty" gorm:"type:text"`
+	ClaimPassword string `json:"-" gorm:"type:varchar(128);default:''"`
+	Enabled       bool   `json:"enabled" gorm:"default:true;index"`
+	OncePerUser   bool   `json:"once_per_user" gorm:"default:true"`
+	DailyLimit    int    `json:"daily_limit" gorm:"default:0"`
+	CreatedAt     int64  `json:"created_at" gorm:"bigint;index"`
+	UpdatedAt     int64  `json:"updated_at" gorm:"bigint;index"`
 }
 
 func (GrowthRewardItem) TableName() string {
@@ -112,8 +114,8 @@ func GetDefaultGrowthRewardItems() []*GrowthRewardItem {
 		{
 			Code:        GrowthRewardItemJoinCommunity,
 			Title:       "Join the community",
-			Description: "Submit your community account or proof for review.",
-			ItemType:    GrowthRewardItemTypeSemiAuto,
+			Description: "Join the community and enter the task password to claim the reward.",
+			ItemType:    GrowthRewardItemTypeAuto,
 			Enabled:     true,
 			OncePerUser: true,
 		},

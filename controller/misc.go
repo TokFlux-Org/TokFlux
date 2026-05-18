@@ -47,8 +47,7 @@ func GetStatus(c *gin.Context) {
 	passkeySetting := system_setting.GetPasskeySettings()
 	legalSetting := system_setting.GetLegalSettings()
 	growthSetting := operation_setting.GetGrowthSetting()
-	checkinSetting := operation_setting.GetCheckinSetting()
-	growthCenterEnabled := growthSetting.Enabled || growthSetting.SubmissionEnabled || checkinSetting.Enabled
+	growthCenterEnabled := growthSetting.Enabled || growthSetting.SubmissionEnabled || growthSetting.DailyCheckinEnabled
 
 	data := gin.H{
 		"version":                     common.Version,
@@ -121,9 +120,9 @@ func GetStatus(c *gin.Context) {
 		"setup":                       constant.Setup,
 		"user_agreement_enabled":      legalSetting.UserAgreement != "",
 		"privacy_policy_enabled":      legalSetting.PrivacyPolicy != "",
-		"checkin_enabled":             checkinSetting.Enabled,
+		"checkin_enabled":             growthSetting.DailyCheckinEnabled,
 		"growth_center_enabled":       growthCenterEnabled,
-		"growth_rewards_enabled":      growthSetting.Enabled || checkinSetting.Enabled,
+		"growth_rewards_enabled":      growthSetting.Enabled || growthSetting.DailyCheckinEnabled,
 		"growth_submission_enabled":   growthSetting.SubmissionEnabled,
 	}
 

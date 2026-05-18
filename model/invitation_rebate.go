@@ -8,6 +8,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
@@ -153,10 +154,8 @@ func SettleInvitationRebateTx(tx *gorm.DB, topUp *TopUp) (*InvitationRebate, err
 		return nil, err
 	}
 
-	if rebate.Status == InvitationRebateStatusSettled {
-		if err = increaseInvitationRebateQuotaTx(tx, rebate.InviterId, rebate.RebateQuota); err != nil {
-			return nil, err
-		}
+	if err = createPromotionCommissionLedgerForRebateTx(tx, rebate, topUp); err != nil {
+		return nil, err
 	}
 
 	return rebate, nil
@@ -187,6 +186,57 @@ func increaseInvitationRebateQuotaTx(tx *gorm.DB, inviterId int, rebateQuota int
 		}).Error
 }
 
+func createPromotionCommissionLedgerForRebateTx(tx *gorm.DB, rebate *InvitationRebate, topUp *TopUp) error {
+	if rebate == nil || topUp == nil {
+		return nil
+	}
+	grossAmountCents := decimal.NewFromFloat(topUp.Money).
+		Mul(decimal.NewFromFloat(rebate.RebatePercentage)).
+		Div(decimal.NewFromInt(100)).
+		Mul(decimal.NewFromInt(100)).
+		Round(0).
+		IntPart()
+	if grossAmountCents <= 0 {
+		return nil
+	}
+	status := PromotionCommissionStatusPending
+	settledAt := int64(0)
+	if rebate.Status == InvitationRebateStatusSettled {
+		status = PromotionCommissionStatusSettled
+		settledAt = rebate.SettledAt
+	}
+	paymentSnapshot, err := common.Marshal(map[string]interface{}{
+		"top_up_id":        topUp.Id,
+		"trade_no":         topUp.TradeNo,
+		"paid_amount":      topUp.Money,
+		"paid_currency":    "CNY",
+		"payment_method":   topUp.PaymentMethod,
+		"payment_provider": topUp.PaymentProvider,
+	})
+	if err != nil {
+		return err
+	}
+	ledger := &PromotionCommissionLedger{
+		UserId:           rebate.InviterId,
+		InviteeId:        rebate.InviteeId,
+		SourceType:       PromotionCommissionSourceTopUpRebate,
+		SourceId:         rebate.Id,
+		SourceTradeNo:    rebate.TradeNo,
+		Cashable:         true,
+		Currency:         "CNY",
+		GrossAmountCents: grossAmountCents,
+		NetAmountCents:   grossAmountCents,
+		QuotaEquivalent:  rebate.RebateQuota,
+		Status:           status,
+		AvailableAt:      rebate.SettleAfter,
+		SettledAt:        settledAt,
+		RuleSnapshot:     rebate.RuleSnapshot,
+		PaymentSnapshot:  string(paymentSnapshot),
+		CreatedAt:        rebate.CreatedAt,
+	}
+	return CreatePromotionCommissionLedgerTx(tx, ledger)
+}
+
 func settleInvitationRebateTx(tx *gorm.DB, rebate *InvitationRebate, settledAt int64) error {
 	if tx == nil {
 		return errors.New("transaction is required")
@@ -209,7 +259,7 @@ func settleInvitationRebateTx(tx *gorm.DB, rebate *InvitationRebate, settledAt i
 	if res.RowsAffected == 0 {
 		return nil
 	}
-	if err := increaseInvitationRebateQuotaTx(tx, rebate.InviterId, rebate.RebateQuota); err != nil {
+	if err := SettlePromotionCommissionLedgerTx(tx, PromotionCommissionSourceTopUpRebate, rebate.Id, settledAt); err != nil {
 		return err
 	}
 	rebate.Status = InvitationRebateStatusSettled
@@ -266,18 +316,7 @@ func ReverseInvitationRebateByTopUpTx(tx *gorm.DB, topUpId int, refundTradeNo st
 	}
 
 	now := common.GetTimestamp()
-	reversalQuota := 0
-	if rebate.Status == InvitationRebateStatusSettled && rebate.RebateQuota > 0 {
-		reversalQuota = rebate.RebateQuota
-		if err := tx.Model(&User{}).
-			Where("id = ?", rebate.InviterId).
-			Updates(map[string]interface{}{
-				"aff_quota":   gorm.Expr("aff_quota - ?", reversalQuota),
-				"aff_history": gorm.Expr("aff_history - ?", reversalQuota),
-			}).Error; err != nil {
-			return nil, err
-		}
-	}
+	reversalQuota := rebate.RebateQuota
 
 	if err := tx.Model(&InvitationRebate{}).
 		Where("id = ?", rebate.Id).
@@ -288,6 +327,9 @@ func ReverseInvitationRebateByTopUpTx(tx *gorm.DB, topUpId int, refundTradeNo st
 			"reversed_at":     now,
 			"remark":          remark,
 		}).Error; err != nil {
+		return nil, err
+	}
+	if err := ReversePromotionCommissionLedgerTx(tx, PromotionCommissionSourceTopUpRebate, rebate.Id, refundTradeNo, remark); err != nil {
 		return nil, err
 	}
 	rebate.Status = InvitationRebateStatusReversed

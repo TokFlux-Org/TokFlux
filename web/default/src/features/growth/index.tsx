@@ -64,6 +64,7 @@ import {
 } from './shared'
 
 const JOIN_COMMUNITY_CODE = 'join_community'
+const MONTHLY_SPEND_TARGET_CODE = 'monthly_spend_target'
 
 const CONTENT_REWARD_COPY: Record<
   string,
@@ -71,30 +72,16 @@ const CONTENT_REWARD_COPY: Record<
     title: string
     badge?: string
     icon: LucideIcon
-    intro: string[]
-    examples: string
   }
 > = {
   content_publish: {
     title: 'Publish an article, video, or tutorial',
     badge: 'Recommended',
     icon: FileText,
-    intro: [
-      'Best for articles, videos, reviews, and tutorials published on public platforms.',
-      'Topics can include setup guides, API usage, model reviews, free quota collection, and integration examples.',
-    ],
-    examples:
-      'Suitable platforms include blogs, CSDN, Zhihu, video sites, documentation sites, and community posts.',
   },
   backlink_submission: {
     title: 'Submit a website backlink or directory listing',
     icon: Globe2,
-    intro: [
-      'Add a public backlink to this site from your website, directory, navigation page, docs, or resource list.',
-      'Reward quality depends on page relevance, visibility, and long-term availability.',
-    ],
-    examples:
-      'Higher-quality pages with stable access and relevant surrounding content are easier to approve.',
   },
 }
 
@@ -205,6 +192,12 @@ export function Growth() {
     [t]
   )
 
+  const rewardItemIntroductionLines = (item: GrowthRewardItem) =>
+    (item.introduction || '')
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+
   const formatRewardItemQuota = (item: GrowthRewardItem) => {
     const minQuota = item.reward_quota_min ?? item.reward_quota ?? 0
     const maxQuota = item.reward_quota_max ?? minQuota
@@ -212,6 +205,26 @@ export function Growth() {
       return `${formatQuota(minQuota)} - ${formatQuota(maxQuota)}`
     }
     return formatQuota(minQuota)
+  }
+
+  const rewardItemProgressDescription = (item: GrowthRewardItem) => {
+    if (item.code !== MONTHLY_SPEND_TARGET_CODE) return ''
+    const current = Number(item.progress_current_quota || 0)
+    const target = Number(item.progress_target_quota || 0)
+    if (target <= 0) return ''
+    return t('Monthly consumed {{current}} / target {{target}}', {
+      current: formatQuota(current),
+      target: formatQuota(target),
+    })
+  }
+
+  const shouldShowContentRewardStatus = (item: GrowthRewardItem) =>
+    item.status !== 'available' && item.status !== 'completed'
+
+  const rewardRemark = (reward: GrowthReward) => {
+    const remark = reward.remark?.trim()
+    if (!remark) return '-'
+    return t(remark)
   }
 
   const submitProof = async () => {
@@ -294,6 +307,8 @@ export function Growth() {
                 <CardContent className='grid gap-3'>
                   {automaticRewardItems.map((item) => {
                     const isJoinCommunity = item.code === JOIN_COMMUNITY_CODE
+                    const progressDescription =
+                      rewardItemProgressDescription(item)
                     const claimDisabled = isJoinCommunity
                       ? item.status === 'completed' ||
                         claimingCode === item.code
@@ -342,6 +357,11 @@ export function Growth() {
                           <p className='text-muted-foreground mt-1 line-clamp-2 text-xs'>
                             {rewardItemDescription(item)}
                           </p>
+                          {progressDescription ? (
+                            <p className='text-muted-foreground mt-1 text-xs'>
+                              {progressDescription}
+                            </p>
+                          ) : null}
                           {item.reason ? (
                             <p className='text-muted-foreground mt-1 text-xs'>
                               {t(item.reason)}
@@ -375,33 +395,15 @@ export function Growth() {
 
           {contentRewardItems.length > 0 ? (
             <Card>
-              <CardHeader className='gap-3'>
-                <div className='flex flex-wrap items-center justify-between gap-3'>
-                  <CardTitle>{t('Content rewards')}</CardTitle>
-                  {docsLink ? (
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      render={
-                        <a href={docsLink} target='_blank' rel='noreferrer' />
-                      }
-                    >
-                      <ExternalLink className='size-4' />
-                      {t('View details')}
-                    </Button>
-                  ) : (
-                    <Button type='button' variant='outline' size='sm' disabled>
-                      <ExternalLink className='size-4' />
-                      {t('View details')}
-                    </Button>
-                  )}
-                </div>
+              <CardHeader>
+                <CardTitle>{t('Content rewards')}</CardTitle>
               </CardHeader>
               <CardContent className='grid gap-4'>
                 <div className='grid gap-3'>
                   {contentRewardItems.map((item) => {
                     const enhanced = CONTENT_REWARD_COPY[item.code]
                     const Icon = enhanced?.icon || FileText
+                    const introductionLines = rewardItemIntroductionLines(item)
                     return (
                       <div
                         key={item.code}
@@ -438,9 +440,11 @@ export function Growth() {
                                     {t(enhanced.badge)}
                                   </Badge>
                                 ) : null}
-                                <Badge variant={statusVariant(item.status)}>
-                                  {t(item.status)}
-                                </Badge>
+                                {shouldShowContentRewardStatus(item) ? (
+                                  <Badge variant={statusVariant(item.status)}>
+                                    {t(item.status)}
+                                  </Badge>
+                                ) : null}
                               </div>
                               <p className='text-muted-foreground text-xs leading-5'>
                                 {rewardItemDescription(item)}
@@ -448,16 +452,15 @@ export function Growth() {
                             </div>
                           </div>
 
-                          {enhanced ? (
+                          {introductionLines.length > 0 ? (
                             <div className='space-y-2 border-l pl-4'>
                               <div className='text-xs font-medium'>
                                 {t('Task introduction')}
                               </div>
                               <div className='text-muted-foreground space-y-1.5 text-xs leading-5'>
-                                {enhanced.intro.map((line) => (
-                                  <p key={line}>{t(line)}</p>
+                                {introductionLines.map((line, index) => (
+                                  <p key={`${line}-${index}`}>{t(line)}</p>
                                 ))}
-                                <p>{t(enhanced.examples)}</p>
                               </div>
                             </div>
                           ) : null}
@@ -570,7 +573,7 @@ export function Growth() {
                             {rewardItemTitle(reward.item_code)}
                           </div>
                           <div className='text-muted-foreground truncate text-xs'>
-                            {reward.remark || '-'}
+                            {rewardRemark(reward)}
                           </div>
                         </div>
                         <span className='text-sm font-semibold tabular-nums'>

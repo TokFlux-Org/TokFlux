@@ -192,12 +192,18 @@ func InitOptionMap() {
 
 func loadOptionsFromDatabase() {
 	options, _ := AllOption()
+	dbOptions := make(map[string]string, len(options))
 	for _, option := range options {
+		dbOptions[option.Key] = option.Value
+		if isLegacyCheckinOptionKey(option.Key) {
+			continue
+		}
 		err := updateOptionMap(option.Key, option.Value)
 		if err != nil {
 			common.SysLog("failed to update option map: " + err.Error())
 		}
 	}
+	migrateLegacyCheckinOptions(dbOptions)
 }
 
 func SyncOptions(frequency int) {
@@ -209,6 +215,7 @@ func SyncOptions(frequency int) {
 }
 
 func UpdateOption(key string, value string) error {
+	key = normalizeLegacyOptionKey(key)
 	// Save to database first
 	option := Option{
 		Key: key,
@@ -555,6 +562,38 @@ func updateOptionMap(key string, value string) (err error) {
 		// No additional in-memory variable to update.
 	}
 	return err
+}
+
+func normalizeLegacyOptionKey(key string) string {
+	switch key {
+	case "checkin_setting.enabled":
+		return "growth_setting.daily_checkin_enabled"
+	case "checkin_setting.min_quota":
+		return "growth_setting.daily_checkin_min_reward_quota"
+	case "checkin_setting.max_quota":
+		return "growth_setting.daily_checkin_max_reward_quota"
+	default:
+		return key
+	}
+}
+
+func isLegacyCheckinOptionKey(key string) bool {
+	return normalizeLegacyOptionKey(key) != key
+}
+
+func migrateLegacyCheckinOptions(dbOptions map[string]string) {
+	for legacyKey, legacyValue := range dbOptions {
+		newKey := normalizeLegacyOptionKey(legacyKey)
+		if newKey == legacyKey {
+			continue
+		}
+		if _, exists := dbOptions[newKey]; exists {
+			continue
+		}
+		if err := updateOptionMap(newKey, legacyValue); err != nil {
+			common.SysLog("failed to migrate legacy check-in option: " + err.Error())
+		}
+	}
 }
 
 // handleConfigUpdate 处理分层配置更新，返回是否已处理

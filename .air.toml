@@ -1,0 +1,51 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -buildvcs=false -o ./tmp/main.exe ."
+  bin = "./tmp/main.exe"
+  delay = 1000
+  exclude_dir = [
+    ".git",
+    ".github",
+    ".agents",
+    "bin",
+    "docs",
+    "electron",
+    "logs",
+    "tmp",
+    "web/classic/dist",
+    "web/classic/node_modules",
+    "web/default/dist",
+    "web/default/node_modules"
+  ]
+  exclude_file = []
+  exclude_regex = ["_test\\.go"]
+  exclude_unchanged = true
+  follow_symlink = false
+  include_dir = []
+  include_ext = ["go", "env", "yaml", "yml", "toml"]
+  kill_delay = "500ms"
+  log = "air-build.log"
+  poll = false
+  rerun = false
+  send_interrupt = true
+  stop_on_error = true
+
+[color]
+  app = ""
+  build = "yellow"
+  main = "magenta"
+  runner = "green"
+  watcher = "cyan"
+
+[log]
+  main_only = false
+  time = true
+
+[misc]
+  clean_on_exit = true
+
+[screen]
+  clear_on_rebuild = false
+  keep_scroll = true

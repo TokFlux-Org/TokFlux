@@ -30,6 +30,7 @@ type GrowthRewardItem struct {
 	Code          string `json:"code" gorm:"type:varchar(64);uniqueIndex;not null"`
 	Title         string `json:"title" gorm:"type:varchar(128);not null"`
 	Description   string `json:"description" gorm:"type:text"`
+	Introduction  string `json:"introduction,omitempty" gorm:"type:text"`
 	RewardQuota   int    `json:"reward_quota" gorm:"default:0"`
 	ItemType      string `json:"item_type" gorm:"type:varchar(32);index;not null"`
 	ActionURL     string `json:"action_url,omitempty" gorm:"type:text"`
@@ -123,6 +124,9 @@ func GetDefaultGrowthRewardItems() []*GrowthRewardItem {
 			Code:        GrowthRewardItemContentPublish,
 			Title:       "Publish an article, video, or tutorial",
 			Description: "Share content that helps others use the API service.",
+			Introduction: "Best for articles, videos, reviews, and tutorials published on public platforms.\n" +
+				"Topics can include setup guides, API usage, model reviews, free quota collection, and integration examples.\n" +
+				"Suitable platforms include blogs, CSDN, Zhihu, video sites, documentation sites, and community posts.",
 			ItemType:    GrowthRewardItemTypeManual,
 			Enabled:     true,
 			OncePerUser: false,
@@ -131,6 +135,9 @@ func GetDefaultGrowthRewardItems() []*GrowthRewardItem {
 			Code:        GrowthRewardItemBacklinkSubmission,
 			Title:       "Submit a website backlink or directory listing",
 			Description: "Submit an approved backlink or directory listing.",
+			Introduction: "Add a public backlink to this site from your website, directory, navigation page, docs, or resource list.\n" +
+				"Reward quality depends on page relevance, visibility, and long-term availability.\n" +
+				"Higher-quality pages with stable access and relevant surrounding content are easier to approve.",
 			ItemType:    GrowthRewardItemTypeManual,
 			Enabled:     true,
 			OncePerUser: false,
@@ -150,15 +157,58 @@ func migrateGrowthRewardTables() error {
 			return err
 		}
 	}
+	if migrator.HasTable(&GrowthRewardItem{}) && !migrator.HasColumn(&GrowthRewardItem{}, "introduction") {
+		if err := migrator.AddColumn(&GrowthRewardItem{}, "Introduction"); err != nil {
+			return err
+		}
+		if err := backfillDefaultGrowthRewardItemIntroductions(); err != nil {
+			return err
+		}
+	}
 	if migrator.HasTable(&GrowthReward{}) && migrator.HasColumn(&GrowthReward{}, "task_code") && !migrator.HasColumn(&GrowthReward{}, "item_code") {
 		if err := migrator.RenameColumn(&GrowthReward{}, "task_code", "item_code"); err != nil {
 			return err
 		}
+	}
+	if err := dropLegacyGrowthCodeColumn(&GrowthReward{}, "growth_rewards"); err != nil {
+		return err
 	}
 	if migrator.HasTable(&GrowthSubmission{}) && migrator.HasColumn(&GrowthSubmission{}, "task_code") && !migrator.HasColumn(&GrowthSubmission{}, "item_code") {
 		if err := migrator.RenameColumn(&GrowthSubmission{}, "task_code", "item_code"); err != nil {
 			return err
 		}
 	}
+	if err := dropLegacyGrowthCodeColumn(&GrowthSubmission{}, "growth_submissions"); err != nil {
+		return err
+	}
 	return nil
+}
+
+func backfillDefaultGrowthRewardItemIntroductions() error {
+	for _, item := range GetDefaultGrowthRewardItems() {
+		if item.Introduction == "" {
+			continue
+		}
+		if err := DB.Model(&GrowthRewardItem{}).
+			Where("code = ?", item.Code).
+			Update("introduction", item.Introduction).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func dropLegacyGrowthCodeColumn(modelValue interface{}, tableName string) error {
+	migrator := DB.Migrator()
+	if !migrator.HasTable(modelValue) ||
+		!migrator.HasColumn(modelValue, "task_code") ||
+		!migrator.HasColumn(modelValue, "item_code") {
+		return nil
+	}
+	if err := DB.Exec(
+		"UPDATE " + tableName + " SET item_code = task_code WHERE (item_code IS NULL OR item_code = '') AND task_code IS NOT NULL AND task_code <> ''",
+	).Error; err != nil {
+		return err
+	}
+	return migrator.DropColumn(modelValue, "task_code")
 }

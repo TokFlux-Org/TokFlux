@@ -389,6 +389,21 @@ func (user *User) TransferAffQuotaToQuota(quota int) error {
 	if err := tx.Save(user).Error; err != nil {
 		return err
 	}
+	now := common.GetTimestamp()
+	if err := CreatePromotionEventTx(tx, &PromotionEvent{
+		EventKey:    fmt.Sprintf("%s:%s:%d:%d", PromotionEventTypePromotionRewardTransferred, PromotionEventSourceInvitationQuota, user.Id, now),
+		UserId:      user.Id,
+		EventType:   PromotionEventTypePromotionRewardTransferred,
+		SourceTable: PromotionEventSourceInvitationQuota,
+		SourceId:    int(now),
+		Direction:   PromotionEventDirectionIncome,
+		QuotaDelta:  quota,
+		Status:      GrowthRewardStatusTransferred,
+		Title:       "Promotion reward transferred to balance",
+		CreatedAt:   now,
+	}); err != nil {
+		return err
+	}
 
 	// 提交事务
 	return tx.Commit().Error

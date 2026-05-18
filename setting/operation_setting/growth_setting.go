@@ -4,6 +4,9 @@ import "github.com/QuantumNous/new-api/setting/config"
 
 type GrowthSetting struct {
 	Enabled                       bool    `json:"enabled"`
+	DailyCheckinEnabled           bool    `json:"daily_checkin_enabled"`
+	DailyCheckinMinRewardQuota    int     `json:"daily_checkin_min_reward_quota"`
+	DailyCheckinMaxRewardQuota    int     `json:"daily_checkin_max_reward_quota"`
 	FirstAPIKeyRewardQuota        int     `json:"first_api_key_reward_quota"`
 	FirstAPIRequestRewardQuota    int     `json:"first_api_request_reward_quota"`
 	FirstTopUpRewardQuota         int     `json:"first_topup_reward_quota"`
@@ -23,6 +26,9 @@ type GrowthSetting struct {
 
 var growthSetting = GrowthSetting{
 	Enabled:                       false,
+	DailyCheckinEnabled:           false,
+	DailyCheckinMinRewardQuota:    1000,
+	DailyCheckinMaxRewardQuota:    10000,
 	FirstAPIKeyRewardQuota:        1000,
 	FirstAPIRequestRewardQuota:    5000,
 	FirstTopUpRewardQuota:         5000,
@@ -46,4 +52,12 @@ func init() {
 
 func GetGrowthSetting() *GrowthSetting {
 	return &growthSetting
+}
+
+func IsDailyCheckinEnabled() bool {
+	return growthSetting.DailyCheckinEnabled
+}
+
+func GetDailyCheckinQuotaRange() (min, max int) {
+	return growthSetting.DailyCheckinMinRewardQuota, growthSetting.DailyCheckinMaxRewardQuota
 }

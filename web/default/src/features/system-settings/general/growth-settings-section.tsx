@@ -16,11 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type { ReactNode } from 'react'
 import { z } from 'zod'
 import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -32,12 +34,16 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
 
 const schema = z.object({
   enabled: z.boolean(),
+  dailyCheckinEnabled: z.boolean(),
+  dailyCheckinMinRewardQuota: z.coerce.number().int().min(0),
+  dailyCheckinMaxRewardQuota: z.coerce.number().int().min(0),
   firstAPIKeyRewardQuota: z.coerce.number().int().min(0),
   firstAPIRequestRewardQuota: z.coerce.number().int().min(0),
   firstTopUpRewardQuota: z.coerce.number().int().min(0),
@@ -56,17 +62,23 @@ const schema = z.object({
 })
 
 type Values = z.infer<typeof schema>
-type NumberFieldName = Exclude<keyof Values, 'enabled' | 'submissionEnabled'>
+type NumberFieldName = Exclude<
+  keyof Values,
+  'enabled' | 'dailyCheckinEnabled' | 'submissionEnabled'
+>
 
 const optionKeys: Record<keyof Values, string> = {
   enabled: 'growth_setting.enabled',
+  dailyCheckinEnabled: 'growth_setting.daily_checkin_enabled',
+  dailyCheckinMinRewardQuota: 'growth_setting.daily_checkin_min_reward_quota',
+  dailyCheckinMaxRewardQuota: 'growth_setting.daily_checkin_max_reward_quota',
   firstAPIKeyRewardQuota: 'growth_setting.first_api_key_reward_quota',
   firstAPIRequestRewardQuota: 'growth_setting.first_api_request_reward_quota',
   firstTopUpRewardQuota: 'growth_setting.first_topup_reward_quota',
   threeDayUsageRewardQuota: 'growth_setting.three_day_usage_reward_quota',
   monthlySpendRewardQuota: 'growth_setting.monthly_spend_reward_quota',
   monthlySpendTargetQuota: 'growth_setting.monthly_spend_target_quota',
-  inviteRebatePercentage: 'growth_setting.invite_rebate_percentage',
+  inviteRebatePercentage: 'InviteRebatePercentage',
   inviteFirstRequestRewardQuota:
     'growth_setting.invite_first_request_reward_quota',
   inviteFirstTopUpRewardQuota: 'growth_setting.invite_first_topup_reward_quota',
@@ -78,7 +90,7 @@ const optionKeys: Record<keyof Values, string> = {
   submissionMaxRewardQuota: 'growth_setting.submission_max_reward_quota',
 }
 
-const rewardFields: Array<{
+const automationFields: Array<{
   name: NumberFieldName
   label: string
   description: string
@@ -115,7 +127,24 @@ const rewardFields: Array<{
   },
 ]
 
-const controlFields: Array<{
+const dailyCheckinFields: Array<{
+  name: NumberFieldName
+  label: string
+  description: string
+}> = [
+  {
+    name: 'dailyCheckinMinRewardQuota',
+    label: 'Minimum check-in quota',
+    description: 'Minimum quota amount awarded for check-in',
+  },
+  {
+    name: 'dailyCheckinMaxRewardQuota',
+    label: 'Maximum check-in quota',
+    description: 'Maximum quota amount awarded for check-in',
+  },
+]
+
+const invitationFields: Array<{
   name: NumberFieldName
   label: string
   description: string
@@ -142,6 +171,13 @@ const controlFields: Array<{
     label: 'Rebate freeze days',
     description: 'Days before future rebates become settleable.',
   },
+]
+
+const budgetFields: Array<{
+  name: NumberFieldName
+  label: string
+  description: string
+}> = [
   {
     name: 'userDailyRewardLimitQuota',
     label: 'User daily reward limit',
@@ -154,6 +190,13 @@ const controlFields: Array<{
     description:
       'Maximum growth reward quota for the whole site per day. Zero means unlimited.',
   },
+]
+
+const submissionFields: Array<{
+  name: NumberFieldName
+  label: string
+  description: string
+}> = [
   {
     name: 'submissionMinRewardQuota',
     label: 'Submission minimum reward',
@@ -181,7 +224,9 @@ export function GrowthSettingsSection({
 
   const { isDirty, isSubmitting } = form.formState
   const enabled = form.watch('enabled')
+  const dailyCheckinEnabled = form.watch('dailyCheckinEnabled')
   const submissionEnabled = form.watch('submissionEnabled')
+  const saving = updateOption.isPending || isSubmitting
 
   async function onSubmit(values: Values) {
     const updates: Array<{ key: string; value: string }> = []
@@ -215,7 +260,7 @@ export function GrowthSettingsSection({
         <form
           onSubmit={form.handleSubmit(onSubmit)}
           autoComplete='off'
-          className='space-y-6'
+          className='flex flex-col gap-6'
         >
           <div className='grid gap-4 md:grid-cols-2'>
             <FormField
@@ -233,7 +278,7 @@ export function GrowthSettingsSection({
                     <Switch
                       checked={field.value}
                       onCheckedChange={field.onChange}
-                      disabled={updateOption.isPending || isSubmitting}
+                      disabled={saving}
                     />
                   </FormControl>
                 </FormItem>
@@ -255,7 +300,7 @@ export function GrowthSettingsSection({
                     <Switch
                       checked={field.value}
                       onCheckedChange={field.onChange}
-                      disabled={updateOption.isPending || isSubmitting}
+                      disabled={saving}
                     />
                   </FormControl>
                 </FormItem>
@@ -263,9 +308,150 @@ export function GrowthSettingsSection({
             />
           </div>
 
-          {enabled ? (
-            <div className='grid gap-6 md:grid-cols-2 xl:grid-cols-3'>
-              {rewardFields.map((item) => (
+          <SettingsGroup
+            title={t('Daily check-in rules')}
+            description={t(
+              'Allow users to claim a random quota reward once per day.'
+            )}
+            badge={
+              dailyCheckinEnabled
+                ? t('Daily check-in enabled')
+                : t('Daily check-in disabled')
+            }
+          >
+            <div className='flex flex-col gap-5'>
+              <FormField
+                control={form.control}
+                name='dailyCheckinEnabled'
+                render={({ field }) => (
+                  <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4'>
+                    <div className='space-y-0.5'>
+                      <FormLabel>{t('Enable daily check-in')}</FormLabel>
+                      <FormDescription>
+                        {t(
+                          'Allow users to check in daily for random quota rewards'
+                        )}
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        disabled={saving}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FieldGrid>
+                {dailyCheckinFields.map((item) => (
+                  <FormField
+                    key={item.name}
+                    control={form.control}
+                    name={item.name}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t(item.label)}</FormLabel>
+                        <FormControl>
+                          <Input
+                            type='number'
+                            min={0}
+                            disabled={!dailyCheckinEnabled}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>{t(item.description)}</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ))}
+              </FieldGrid>
+            </div>
+          </SettingsGroup>
+
+          <SettingsGroup
+            title={t('Automatic reward rules')}
+            description={t(
+              'Global quota values used by one-time activation and retention tasks.'
+            )}
+            badge={
+              enabled
+                ? t('Growth rewards enabled')
+                : t('Growth rewards disabled')
+            }
+          >
+            <FieldGrid>
+              {automationFields.map((item) => (
+                <FormField
+                  key={item.name}
+                  control={form.control}
+                  name={item.name}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t(item.label)}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type='number'
+                          min={0}
+                          disabled={!enabled}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>{t(item.description)}</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ))}
+            </FieldGrid>
+          </SettingsGroup>
+
+          <SettingsGroup
+            title={t('Invitation rebate rules')}
+            description={t(
+              'Referral rebate and milestone rewards shared by the promotion center.'
+            )}
+          >
+            <FieldGrid>
+              {invitationFields.map((item) => (
+                <FormField
+                  key={item.name}
+                  control={form.control}
+                  name={item.name}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t(item.label)}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type='number'
+                          min={0}
+                          disabled={!submissionEnabled}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>{t(item.description)}</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ))}
+            </FieldGrid>
+          </SettingsGroup>
+
+          <SettingsGroup
+            title={t('Content submission rules')}
+            description={t(
+              'Default reward range for reviewed promotion proof submissions.'
+            )}
+            badge={
+              submissionEnabled
+                ? t('Submissions enabled')
+                : t('Submissions disabled')
+            }
+          >
+            <FieldGrid>
+              {submissionFields.map((item) => (
                 <FormField
                   key={item.name}
                   control={form.control}
@@ -282,17 +468,17 @@ export function GrowthSettingsSection({
                   )}
                 />
               ))}
-            </div>
-          ) : null}
+            </FieldGrid>
+          </SettingsGroup>
 
-          <div className='grid gap-6 md:grid-cols-2 xl:grid-cols-3'>
-            {controlFields.map((item) => {
-              const disabled =
-                item.name === 'submissionMinRewardQuota' ||
-                item.name === 'submissionMaxRewardQuota'
-                  ? !submissionEnabled
-                  : false
-              return (
+          <SettingsGroup
+            title={t('Budget limits')}
+            description={t(
+              'Optional guardrails that cap rewards per user or across the site each day.'
+            )}
+          >
+            <FieldGrid>
+              {budgetFields.map((item) => (
                 <FormField
                   key={item.name}
                   control={form.control}
@@ -301,32 +487,56 @@ export function GrowthSettingsSection({
                     <FormItem>
                       <FormLabel>{t(item.label)}</FormLabel>
                       <FormControl>
-                        <Input
-                          type='number'
-                          min={0}
-                          disabled={disabled}
-                          {...field}
-                        />
+                        <Input type='number' min={0} {...field} />
                       </FormControl>
                       <FormDescription>{t(item.description)}</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              )
-            })}
-          </div>
+              ))}
+            </FieldGrid>
+          </SettingsGroup>
 
-          <Button
-            type='submit'
-            disabled={!isDirty || updateOption.isPending || isSubmitting}
-          >
-            {updateOption.isPending || isSubmitting
-              ? t('Saving...')
-              : t('Save growth settings')}
+          <Button type='submit' disabled={!isDirty || saving} className='w-fit'>
+            {saving ? t('Saving...') : t('Save growth settings')}
           </Button>
         </form>
       </Form>
     </SettingsSection>
+  )
+}
+
+function SettingsGroup({
+  title,
+  description,
+  badge,
+  children,
+}: {
+  title: string
+  description: string
+  badge?: string
+  children: ReactNode
+}) {
+  return (
+    <div className='rounded-lg border p-4'>
+      <div className='flex flex-wrap items-start justify-between gap-3'>
+        <div className='flex min-w-0 flex-col gap-1'>
+          <h4 className='text-sm font-semibold'>{title}</h4>
+          <p className='text-muted-foreground text-xs leading-5'>
+            {description}
+          </p>
+        </div>
+        {badge ? <Badge variant='outline'>{badge}</Badge> : null}
+      </div>
+      <Separator className='my-4' />
+      {children}
+    </div>
+  )
+}
+
+function FieldGrid({ children }: { children: ReactNode }) {
+  return (
+    <div className='grid gap-5 md:grid-cols-2 xl:grid-cols-3'>{children}</div>
   )
 }

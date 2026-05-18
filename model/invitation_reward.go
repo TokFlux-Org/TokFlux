@@ -134,6 +134,9 @@ func SettleInvitationMilestoneRewardTx(tx *gorm.DB, inviteeId int, rewardType st
 		}).Error; err != nil {
 		return nil, err
 	}
+	if err = CreateInvitationRewardEventTx(tx, reward); err != nil {
+		return nil, err
+	}
 
 	return reward, nil
 }
@@ -168,6 +171,9 @@ func CreateInvitationRegisterRewardTx(tx *gorm.DB, inviterId int, inviteeId int)
 		SettledAt:    now,
 	}
 	if err = tx.Create(reward).Error; err != nil {
+		return nil, err
+	}
+	if err = CreateInvitationRewardEventTx(tx, reward); err != nil {
 		return nil, err
 	}
 	return reward, nil

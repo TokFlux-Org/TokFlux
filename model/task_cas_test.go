@@ -42,6 +42,10 @@ func TestMain(m *testing.M) {
 		&TopUp{},
 		&InvitationRebate{},
 		&InvitationReward{},
+		&PromotionEvent{},
+		&PromotionCommissionLedger{},
+		&PromotionWithdrawal{},
+		&PromotionWithdrawalItem{},
 		&SubscriptionPlan{},
 		&SubscriptionOrder{},
 		&UserSubscription{},
@@ -63,6 +67,10 @@ func truncateTables(t *testing.T) {
 		DB.Exec("DELETE FROM top_ups")
 		DB.Exec("DELETE FROM invitation_rebates")
 		DB.Exec("DELETE FROM invitation_rewards")
+		DB.Exec("DELETE FROM promotion_events")
+		DB.Exec("DELETE FROM promotion_commission_ledgers")
+		DB.Exec("DELETE FROM promotion_withdrawals")
+		DB.Exec("DELETE FROM promotion_withdrawal_items")
 		DB.Exec("DELETE FROM subscription_orders")
 		DB.Exec("DELETE FROM subscription_plans")
 		DB.Exec("DELETE FROM user_subscriptions")

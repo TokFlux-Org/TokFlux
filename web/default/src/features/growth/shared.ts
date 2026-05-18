@@ -27,6 +27,66 @@ export type GrowthSummary = {
   total_rebate_quota: number
   aff_code: string
   invite_rebate_percent: number
+  cash_commission?: PromotionCommissionSummary
+}
+
+export type PromotionCommissionSummary = {
+  currency: string
+  available_amount_cents: number
+  pending_amount_cents: number
+  withdrawing_amount_cents: number
+  withdrawn_amount_cents: number
+  transferred_amount_cents: number
+  available_quota_equivalent: number
+}
+
+export type PromotionCommissionLedger = {
+  id: number
+  source_type: string
+  source_trade_no?: string
+  currency: string
+  gross_amount_cents: number
+  net_amount_cents: number
+  quota_equivalent: number
+  status: string
+  available_at?: number | string
+  settled_at?: number | string
+  refund_trade_no?: string
+  reversal_amount_cents?: number
+  reversal_quota?: number
+  reversed_at?: number | string
+  created_at?: number | string
+}
+
+export type PromotionWithdrawal = {
+  id: number
+  currency: string
+  gross_amount_cents: number
+  fee_amount_cents: number
+  tax_amount_cents: number
+  net_amount_cents: number
+  status: string
+  payout_method?: string
+  trade_no?: string
+  applied_at?: number | string
+  reviewed_at?: number | string
+  paid_at?: number | string
+  review_note?: string
+}
+
+export type PromotionEvent = {
+  id: number
+  event_type: string
+  source_table?: string
+  source_id?: number
+  direction: string
+  quota_delta?: number
+  cash_amount_cents?: number
+  currency?: string
+  status?: string
+  title?: string
+  remark?: string
+  created_at?: number | string
 }
 
 export type GrowthRewardItem = {
@@ -34,11 +94,17 @@ export type GrowthRewardItem = {
   code: string
   title: string
   description: string
+  introduction?: string
   reward_quota: number
   reward_quota_min?: number
   reward_quota_max?: number
+  progress_current_quota?: number
+  progress_target_quota?: number
   item_type: string
   action_url?: string
+  enabled?: boolean
+  once_per_user?: boolean
+  daily_limit?: number
   status: string
   claimable: boolean
   reason?: string
@@ -165,12 +231,34 @@ export function formatTime(value?: number | string) {
   return dayjs(timestamp * 1000).format('YYYY-MM-DD HH:mm')
 }
 
+export function formatCashCents(value?: number, currency = 'CNY') {
+  const amount = Number(value || 0) / 100
+  return `${currency} ${amount.toFixed(2)}`
+}
+
 export function statusVariant(status: string) {
-  if (status === 'completed' || status === 'settled' || status === 'approved') {
+  if (
+    status === 'completed' ||
+    status === 'settled' ||
+    status === 'approved' ||
+    status === 'paid' ||
+    status === 'withdrawn' ||
+    status === 'transferred'
+  ) {
     return 'default'
   }
-  if (status === 'pending' || status === 'pending_review') return 'secondary'
-  if (status === 'rejected' || status === 'frozen' || status === 'reversed') {
+  if (
+    status === 'pending' ||
+    status === 'pending_review' ||
+    status === 'withdrawing'
+  )
+    return 'secondary'
+  if (
+    status === 'rejected' ||
+    status === 'frozen' ||
+    status === 'reversed' ||
+    status === 'failed'
+  ) {
     return 'destructive'
   }
   return 'outline'

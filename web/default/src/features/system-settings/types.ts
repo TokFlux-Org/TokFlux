@@ -270,10 +270,10 @@ export type BillingSettings = {
   WaffoPancakeCurrency: string
   WaffoPancakeUnitPrice: number
   WaffoPancakeMinTopUp: number
-  'checkin_setting.enabled': boolean
-  'checkin_setting.min_quota': number
-  'checkin_setting.max_quota': number
   'growth_setting.enabled': boolean
+  'growth_setting.daily_checkin_enabled': boolean
+  'growth_setting.daily_checkin_min_reward_quota': number
+  'growth_setting.daily_checkin_max_reward_quota': number
   'growth_setting.first_api_key_reward_quota': number
   'growth_setting.first_api_request_reward_quota': number
   'growth_setting.first_topup_reward_quota': number

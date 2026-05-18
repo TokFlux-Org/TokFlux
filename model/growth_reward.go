@@ -66,28 +66,9 @@ func CountGrowthRewardsSince(userId int, itemCode string, since int64) (int64, e
 }
 
 func CreateSettledGrowthReward(userId int, itemCode string, rewardQuota int, sourceId int, remark string) (*GrowthReward, error) {
-	now := time.Now().Unix()
-	reward := &GrowthReward{
-		UserId:      userId,
-		ItemCode:    itemCode,
-		RewardQuota: rewardQuota,
-		Status:      GrowthRewardStatusSettled,
-		SourceId:    sourceId,
-		AvailableAt: now,
-		CreatedAt:   now,
-		SettledAt:   now,
-		Remark:      remark,
-	}
+	reward := NewSettledGrowthReward(userId, itemCode, rewardQuota, sourceId, remark)
 	err := DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(reward).Error; err != nil {
-			return err
-		}
-		if rewardQuota <= 0 {
-			return nil
-		}
-		return tx.Model(&User{}).
-			Where("id = ?", userId).
-			Update("quota", gorm.Expr("quota + ?", rewardQuota)).Error
+		return CreateSettledGrowthRewardTx(tx, reward)
 	})
 	if err != nil {
 		return nil, err
@@ -98,6 +79,42 @@ func CreateSettledGrowthReward(userId int, itemCode string, rewardQuota int, sou
 		}()
 	}
 	return reward, nil
+}
+
+func NewSettledGrowthReward(userId int, itemCode string, rewardQuota int, sourceId int, remark string) *GrowthReward {
+	now := time.Now().Unix()
+	return &GrowthReward{
+		UserId:      userId,
+		ItemCode:    itemCode,
+		RewardQuota: rewardQuota,
+		Status:      GrowthRewardStatusSettled,
+		SourceId:    sourceId,
+		AvailableAt: now,
+		CreatedAt:   now,
+		SettledAt:   now,
+		Remark:      remark,
+	}
+}
+
+func CreateSettledGrowthRewardTx(tx *gorm.DB, reward *GrowthReward) error {
+	if tx == nil {
+		return errors.New("transaction is required")
+	}
+	if reward == nil {
+		return errors.New("reward is required")
+	}
+	if err := tx.Create(reward).Error; err != nil {
+		return err
+	}
+	if err := CreateGrowthRewardEventTx(tx, reward); err != nil {
+		return err
+	}
+	if reward.RewardQuota <= 0 {
+		return nil
+	}
+	return tx.Model(&User{}).
+		Where("id = ?", reward.UserId).
+		Update("quota", gorm.Expr("quota + ?", reward.RewardQuota)).Error
 }
 
 func GetGrowthRewardSummary(userId int) (*GrowthRewardSummary, error) {

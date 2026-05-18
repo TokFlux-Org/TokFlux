@@ -17,9 +17,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { parseCurrencyDisplayType } from '@/lib/currency'
-import { CheckinSettingsSection } from '../general/checkin-settings-section'
+import { GrowthRewardItemsSection } from '../general/growth-reward-items-section'
 import { GrowthSettingsSection } from '../general/growth-settings-section'
 import { GrowthSubmissionsReviewSection } from '../general/growth-submissions-review-section'
+import { GrowthWithdrawalsReviewSection } from '../general/growth-withdrawals-review-section'
 import { PricingSection } from '../general/pricing-section'
 import { QuotaSettingsSection } from '../general/quota-settings-section'
 import { PaymentSettingsSection } from '../integrations/payment-settings-section'
@@ -205,20 +206,6 @@ const BILLING_SECTIONS = [
     ),
   },
   {
-    id: 'checkin',
-    titleKey: 'Check-in Rewards',
-    descriptionKey: 'Configure daily check-in rewards for users',
-    build: (settings: BillingSettings) => (
-      <CheckinSettingsSection
-        defaultValues={{
-          enabled: settings['checkin_setting.enabled'],
-          minQuota: settings['checkin_setting.min_quota'],
-          maxQuota: settings['checkin_setting.max_quota'],
-        }}
-      />
-    ),
-  },
-  {
     id: 'growth',
     titleKey: 'Promotion & Rewards',
     descriptionKey:
@@ -227,6 +214,11 @@ const BILLING_SECTIONS = [
       <GrowthSettingsSection
         defaultValues={{
           enabled: settings['growth_setting.enabled'],
+          dailyCheckinEnabled: settings['growth_setting.daily_checkin_enabled'],
+          dailyCheckinMinRewardQuota:
+            settings['growth_setting.daily_checkin_min_reward_quota'],
+          dailyCheckinMaxRewardQuota:
+            settings['growth_setting.daily_checkin_max_reward_quota'],
           firstAPIKeyRewardQuota:
             settings['growth_setting.first_api_key_reward_quota'],
           firstAPIRequestRewardQuota:
@@ -239,8 +231,7 @@ const BILLING_SECTIONS = [
             settings['growth_setting.monthly_spend_reward_quota'],
           monthlySpendTargetQuota:
             settings['growth_setting.monthly_spend_target_quota'],
-          inviteRebatePercentage:
-            settings['growth_setting.invite_rebate_percentage'],
+          inviteRebatePercentage: settings.InviteRebatePercentage,
           inviteFirstRequestRewardQuota:
             settings['growth_setting.invite_first_request_reward_quota'],
           inviteFirstTopUpRewardQuota:
@@ -270,6 +261,20 @@ const BILLING_SECTIONS = [
         }
       />
     ),
+  },
+  {
+    id: 'growth-items',
+    titleKey: 'Reward Task Items',
+    descriptionKey:
+      'Control task visibility and task-specific settings. Global reward rules stay in Promotion & Rewards.',
+    build: () => <GrowthRewardItemsSection />,
+  },
+  {
+    id: 'growth-withdrawals',
+    titleKey: 'Withdrawal Reviews',
+    descriptionKey:
+      'Review cash commission withdrawal requests and update payout status.',
+    build: () => <GrowthWithdrawalsReviewSection />,
   },
 ] as const
 

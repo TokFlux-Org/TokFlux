@@ -53,8 +53,8 @@ func HasCheckedInToday(userId int) (bool, error) {
 // MySQL 和 PostgreSQL 使用事务保证原子性
 // SQLite 不支持嵌套事务，使用顺序操作 + 手动回滚
 func UserCheckin(userId int) (*Checkin, error) {
-	setting := operation_setting.GetCheckinSetting()
-	if !setting.Enabled {
+	growthSetting := operation_setting.GetGrowthSetting()
+	if !growthSetting.DailyCheckinEnabled {
 		return nil, errors.New("签到功能未启用")
 	}
 
@@ -68,9 +68,9 @@ func UserCheckin(userId int) (*Checkin, error) {
 	}
 
 	// 计算随机额度奖励
-	quotaAwarded := setting.MinQuota
-	if setting.MaxQuota > setting.MinQuota {
-		quotaAwarded = setting.MinQuota + rand.Intn(setting.MaxQuota-setting.MinQuota+1)
+	quotaAwarded := growthSetting.DailyCheckinMinRewardQuota
+	if growthSetting.DailyCheckinMaxRewardQuota > growthSetting.DailyCheckinMinRewardQuota {
+		quotaAwarded = growthSetting.DailyCheckinMinRewardQuota + rand.Intn(growthSetting.DailyCheckinMaxRewardQuota-growthSetting.DailyCheckinMinRewardQuota+1)
 	}
 
 	today := time.Now().Format("2006-01-02")

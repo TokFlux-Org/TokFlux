@@ -57,6 +57,14 @@ func getInvitationQuotaForTest(t *testing.T, userID int) (int, int) {
 	return user.AffQuota, user.AffHistoryQuota
 }
 
+func getPromotionCommissionLedgerForTest(t *testing.T, userID int) PromotionCommissionLedger {
+	t.Helper()
+
+	var ledger PromotionCommissionLedger
+	require.NoError(t, DB.Where("user_id = ?", userID).First(&ledger).Error)
+	return ledger
+}
+
 func setInvitationRebateFreezeDaysForTest(t *testing.T, days int) {
 	t.Helper()
 
@@ -93,9 +101,13 @@ func TestRechargeWaffo_SettlesInvitationRebate(t *testing.T) {
 
 	affQuota, affHistoryQuota := getInvitationQuotaForTest(t, 501)
 	expectedQuota := CalculateInvitationRebateQuota(20)
-	assert.Equal(t, expectedQuota, affQuota)
-	assert.Equal(t, expectedQuota, affHistoryQuota)
+	assert.Zero(t, affQuota)
+	assert.Zero(t, affHistoryQuota)
 	assert.Equal(t, int64(1), getInvitationRebateCountForTest(t, 501))
+	ledger := getPromotionCommissionLedgerForTest(t, 501)
+	assert.Equal(t, PromotionCommissionStatusSettled, ledger.Status)
+	assert.Equal(t, int64(200), ledger.GrossAmountCents)
+	assert.Equal(t, expectedQuota, ledger.QuotaEquivalent)
 }
 
 func TestRechargeWaffo_CreatesPendingInvitationRebateDuringFreeze(t *testing.T) {
@@ -130,12 +142,15 @@ func TestRechargeWaffo_CreatesPendingInvitationRebateDuringFreeze(t *testing.T) 
 
 	affQuota, affHistoryQuota = getInvitationQuotaForTest(t, 551)
 	expectedQuota := CalculateInvitationRebateQuota(20)
-	assert.Equal(t, expectedQuota, affQuota)
-	assert.Equal(t, expectedQuota, affHistoryQuota)
+	assert.Zero(t, affQuota)
+	assert.Zero(t, affHistoryQuota)
 
 	rebate = getInvitationRebateForTest(t, 551)
 	assert.Equal(t, InvitationRebateStatusSettled, rebate.Status)
 	assert.NotZero(t, rebate.SettledAt)
+	ledger := getPromotionCommissionLedgerForTest(t, 551)
+	assert.Equal(t, PromotionCommissionStatusSettled, ledger.Status)
+	assert.Equal(t, expectedQuota, ledger.QuotaEquivalent)
 }
 
 func TestSyncInvitationRebatesForInviter_BackfillsOnlyOnce(t *testing.T) {
@@ -162,9 +177,59 @@ func TestSyncInvitationRebatesForInviter_BackfillsOnlyOnce(t *testing.T) {
 
 	affQuota, affHistoryQuota := getInvitationQuotaForTest(t, 601)
 	expectedQuota := CalculateInvitationRebateQuota(12.5)
-	assert.Equal(t, expectedQuota, affQuota)
-	assert.Equal(t, expectedQuota, affHistoryQuota)
+	assert.Zero(t, affQuota)
+	assert.Zero(t, affHistoryQuota)
 	assert.Equal(t, int64(1), getInvitationRebateCountForTest(t, 601))
+	ledger := getPromotionCommissionLedgerForTest(t, 601)
+	assert.Equal(t, PromotionCommissionStatusSettled, ledger.Status)
+	assert.Equal(t, expectedQuota, ledger.QuotaEquivalent)
+}
+
+func TestReverseInvitationRebate_TransferredCashCommissionDeductsQuota(t *testing.T) {
+	truncateTables(t)
+	setInvitationRebateFreezeDaysForTest(t, 0)
+
+	insertInviterAndInviteeForRebateTest(t, 651, 652)
+	topUp := &TopUp{
+		UserId:          652,
+		Amount:          10,
+		Money:           20,
+		TradeNo:         "rebate-transfer-reversal",
+		PaymentMethod:   "alipay",
+		PaymentProvider: PaymentProviderEpay,
+		CreateTime:      time.Now().Unix(),
+		CompleteTime:    time.Now().Unix(),
+		Status:          common.TopUpStatusSuccess,
+	}
+	require.NoError(t, topUp.Insert())
+	rebate, err := SettleInvitationRebateTx(DB, topUp)
+	require.NoError(t, err)
+	require.NotNil(t, rebate)
+
+	ledger := getPromotionCommissionLedgerForTest(t, 651)
+	require.NoError(t, DB.Model(&User{}).
+		Where("id = ?", 651).
+		Update("quota", gorm.Expr("quota + ?", ledger.QuotaEquivalent)).Error)
+	require.NoError(t, DB.Model(&PromotionCommissionLedger{}).
+		Where("id = ?", ledger.Id).
+		Updates(map[string]interface{}{
+			"status":         PromotionCommissionStatusTransferred,
+			"transferred_at": common.GetTimestamp(),
+		}).Error)
+
+	_, err = ReverseInvitationRebateByTopUp(topUp.Id, "refund-transfer-reversal", "refund")
+	require.NoError(t, err)
+
+	var user User
+	require.NoError(t, DB.Where("id = ?", 651).First(&user).Error)
+	assert.Zero(t, user.Quota)
+
+	ledger = getPromotionCommissionLedgerForTest(t, 651)
+	assert.Equal(t, PromotionCommissionStatusReversed, ledger.Status)
+	assert.Equal(t, "refund-transfer-reversal", ledger.RefundTradeNo)
+	assert.Equal(t, ledger.NetAmountCents, ledger.ReversalAmountCents)
+	assert.Equal(t, ledger.QuotaEquivalent, ledger.ReversalQuota)
+	assert.NotZero(t, ledger.ReversedAt)
 }
 
 func TestSyncInvitationRebatesForInviter_ExcludesSubscriptionTopUps(t *testing.T) {

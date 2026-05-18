@@ -19,11 +19,13 @@ For commercial licensing, please contact support@quantumnous.com
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   BadgeCheck,
+  Banknote,
   BookOpenText,
   Check,
   Coins,
   Copy,
   Gift,
+  History,
   LinkIcon,
   Megaphone,
   MessageSquareText,
@@ -35,22 +37,36 @@ import {
   Wallet,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { api, getSelf } from '@/lib/api'
 import { formatQuota } from '@/lib/format'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
 import { CopyButton } from '@/components/copy-button'
 import { SectionPageLayout } from '@/components/layout'
 import {
   formatTime,
+  formatCashCents,
   getItems,
   type GrowthSummary,
   type InvitationRebate,
   type InvitationRecord,
+  type PromotionCommissionLedger,
+  type PromotionEvent,
+  type PromotionWithdrawal,
   statusVariant,
 } from '@/features/growth/shared'
 import { TransferDialog } from '@/features/wallet/components/dialogs/transfer-dialog'
@@ -101,6 +117,22 @@ const STATUS_GUIDE = [
   ['rejected', 'Rejected because it does not meet promotion rules.'],
 ] as const
 
+const PROMOTION_EVENT_TITLES: Record<string, string> = {
+  invitation_register_reward: 'Invitation registration reward',
+  invitation_first_request_reward: 'Invitation first request reward',
+  invitation_first_topup_reward: 'Invitation first top-up reward',
+  commission_pending: 'Cash commission pending settlement',
+  commission_settled: 'Cash commission settled',
+  commission_transferred: 'Cash commission transferred to balance',
+  promotion_reward_transferred: 'Promotion reward transferred to balance',
+  commission_withdraw_submitted: 'Cash withdrawal request submitted',
+  commission_withdraw_approved: 'Cash withdrawal request approved',
+  commission_withdraw_rejected: 'Cash withdrawal request rejected',
+  commission_withdraw_paid: 'Cash withdrawal paid',
+  commission_reversed: 'Cash commission reversed',
+  growth_reward_settled: 'Growth reward settled',
+}
+
 function formatPercentage(value: number | string | undefined) {
   const percentage = Number.parseFloat(String(value ?? 0))
   if (!Number.isFinite(percentage)) return '0%'
@@ -122,8 +154,18 @@ export function PromotionCenter() {
   const [user, setUser] = useState<UserWalletData | null>(null)
   const [inviteRecords, setInviteRecords] = useState<InvitationRecord[]>([])
   const [rebates, setRebates] = useState<InvitationRebate[]>([])
+  const [commissionLedgers, setCommissionLedgers] = useState<
+    PromotionCommissionLedger[]
+  >([])
+  const [withdrawals, setWithdrawals] = useState<PromotionWithdrawal[]>([])
+  const [promotionEvents, setPromotionEvents] = useState<PromotionEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [transferOpen, setTransferOpen] = useState(false)
+  const [withdrawOpen, setWithdrawOpen] = useState(false)
+  const [cashActionLoading, setCashActionLoading] = useState(false)
+  const [payoutMethod, setPayoutMethod] = useState('alipay')
+  const [payoutAccount, setPayoutAccount] = useState('')
+  const [payoutRemark, setPayoutRemark] = useState('')
   const { affiliateCode, affiliateLink, transferQuota, transferring } =
     useAffiliate()
 
@@ -159,12 +201,18 @@ export function PromotionCenter() {
         inviteRecordsRes,
         rebatesRes,
         rewardsRes,
+        commissionRes,
+        withdrawalRes,
+        eventRes,
       ] = await Promise.all([
         getSelf(),
         api.get('/api/growth/summary'),
         api.get('/api/user/aff/records', { params: { page_size: 20 } }),
         api.get('/api/user/aff/rebates', { params: { page_size: 20 } }),
         api.get('/api/user/aff/rewards', { params: { page_size: 20 } }),
+        api.get('/api/growth/commissions', { params: { page_size: 20 } }),
+        api.get('/api/growth/withdrawals', { params: { page_size: 20 } }),
+        api.get('/api/growth/events', { params: { page_size: 30 } }),
       ])
       if (userRes.success && userRes.data) {
         setUser(userRes.data as UserWalletData)
@@ -177,6 +225,11 @@ export function PromotionCenter() {
           ...getItems<InvitationRebate>(rewardsRes.data),
         ].sort((a, b) => Number(b.created_at || 0) - Number(a.created_at || 0))
       )
+      setCommissionLedgers(
+        getItems<PromotionCommissionLedger>(commissionRes.data)
+      )
+      setWithdrawals(getItems<PromotionWithdrawal>(withdrawalRes.data))
+      setPromotionEvents(getItems<PromotionEvent>(eventRes.data))
     } finally {
       setLoading(false)
     }
@@ -196,6 +249,43 @@ export function PromotionCenter() {
     return ok
   }
 
+  const cashSummary = summary?.cash_commission
+  const availableCashCents = cashSummary?.available_amount_cents || 0
+  const cashCurrency = cashSummary?.currency || 'CNY'
+
+  const handleTransferCash = async () => {
+    try {
+      setCashActionLoading(true)
+      const res = await api.post('/api/growth/commissions/transfer')
+      if (res.data?.success) {
+        toast.success(t('Cash commission transferred to balance'))
+        await loadData()
+      }
+    } finally {
+      setCashActionLoading(false)
+    }
+  }
+
+  const handleSubmitWithdrawal = async () => {
+    try {
+      setCashActionLoading(true)
+      const res = await api.post('/api/growth/withdrawals', {
+        payout_method: payoutMethod,
+        payout_account: payoutAccount,
+        remark: payoutRemark,
+      })
+      if (res.data?.success) {
+        toast.success(t('Withdrawal request submitted'))
+        setWithdrawOpen(false)
+        setPayoutAccount('')
+        setPayoutRemark('')
+        await loadData()
+      }
+    } finally {
+      setCashActionLoading(false)
+    }
+  }
+
   const stats = [
     [
       t('Monthly rebate'),
@@ -208,6 +298,11 @@ export function PromotionCenter() {
       Gift,
     ],
     [t('Pending rebate'), formatQuota(pendingRebateQuota), ShieldCheck],
+    [
+      t('Withdrawable cash'),
+      formatCashCents(availableCashCents, cashCurrency),
+      Banknote,
+    ],
     [t('Transferable rebate'), formatQuota(user?.aff_quota ?? 0), Wallet],
     [
       t('Invited users'),
@@ -272,6 +367,10 @@ export function PromotionCenter() {
                       value={formatQuota(user?.aff_history_quota ?? 0)}
                     />
                     <SideMetric
+                      label={t('Withdrawable cash')}
+                      value={formatCashCents(availableCashCents, cashCurrency)}
+                    />
+                    <SideMetric
                       label={t('Invited users')}
                       value={String(user?.aff_count ?? 0)}
                     />
@@ -289,6 +388,28 @@ export function PromotionCenter() {
                     <Wallet className='size-4' />
                     {t('Transfer to Balance')}
                   </Button>
+                  <div className='grid grid-cols-2 gap-2'>
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='sm'
+                      onClick={handleTransferCash}
+                      disabled={availableCashCents <= 0 || cashActionLoading}
+                    >
+                      <Wallet className='size-4' />
+                      {t('Cash to Balance')}
+                    </Button>
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='sm'
+                      onClick={() => setWithdrawOpen(true)}
+                      disabled={availableCashCents <= 0 || cashActionLoading}
+                    >
+                      <Banknote className='size-4' />
+                      {t('Withdraw cash')}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -405,6 +526,15 @@ export function PromotionCenter() {
                         </TabsTrigger>
                         <TabsTrigger value='rebates'>
                           {t('Rebate details')}
+                        </TabsTrigger>
+                        <TabsTrigger value='cash'>
+                          {t('Cash ledger')}
+                        </TabsTrigger>
+                        <TabsTrigger value='timeline'>
+                          {t('Reward timeline')}
+                        </TabsTrigger>
+                        <TabsTrigger value='withdrawals'>
+                          {t('Withdrawals')}
                         </TabsTrigger>
                         <TabsTrigger value='customers'>
                           {t('My customers')}
@@ -563,6 +693,98 @@ export function PromotionCenter() {
                       </div>
                     </TabsContent>
 
+                    <TabsContent value='cash' className='m-0 space-y-3'>
+                      <div className='divide-y rounded-lg border'>
+                        {commissionLedgers.length > 0 ? (
+                          commissionLedgers.map((ledger) => (
+                            <div
+                              key={ledger.id}
+                              className='grid gap-2 p-3 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center'
+                            >
+                              <div className='min-w-0'>
+                                <div className='truncate text-sm font-medium'>
+                                  {t('Top-up rebate cash commission')}
+                                </div>
+                                <div className='text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs'>
+                                  <span>{formatTime(ledger.created_at)}</span>
+                                  {ledger.source_trade_no ? (
+                                    <span className='font-mono'>
+                                      {ledger.source_trade_no}
+                                    </span>
+                                  ) : null}
+                                  <span>
+                                    {t('Quota equivalent')}:{' '}
+                                    {formatQuota(ledger.quota_equivalent || 0)}
+                                  </span>
+                                </div>
+                              </div>
+                              <Badge variant={statusVariant(ledger.status)}>
+                                {t(ledger.status)}
+                              </Badge>
+                              <div className='text-sm font-semibold tabular-nums'>
+                                {formatCashCents(
+                                  ledger.net_amount_cents,
+                                  ledger.currency
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <EmptyText text={t('No cash commission records')} />
+                        )}
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value='timeline' className='m-0 space-y-3'>
+                      <div className='divide-y rounded-lg border'>
+                        {promotionEvents.length > 0 ? (
+                          promotionEvents.map((event) => (
+                            <PromotionEventRow key={event.id} event={event} />
+                          ))
+                        ) : (
+                          <EmptyText text={t('No reward events')} />
+                        )}
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value='withdrawals' className='m-0 space-y-3'>
+                      <div className='divide-y rounded-lg border'>
+                        {withdrawals.length > 0 ? (
+                          withdrawals.map((withdrawal) => (
+                            <div
+                              key={withdrawal.id}
+                              className='grid gap-2 p-3 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center'
+                            >
+                              <div className='min-w-0'>
+                                <div className='truncate text-sm font-medium'>
+                                  {withdrawal.payout_method || '-'}
+                                </div>
+                                <div className='text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs'>
+                                  <span>{formatTime(withdrawal.applied_at)}</span>
+                                  {withdrawal.trade_no ? (
+                                    <span className='font-mono'>
+                                      {withdrawal.trade_no}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </div>
+                              <Badge variant={statusVariant(withdrawal.status)}>
+                                {t(withdrawal.status)}
+                              </Badge>
+                              <div className='text-sm font-semibold tabular-nums'>
+                                {formatCashCents(
+                                  withdrawal.net_amount_cents,
+                                  withdrawal.currency
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <EmptyText text={t('No withdrawal records')} />
+                        )}
+                      </div>
+                    </TabsContent>
+
                     <TabsContent value='customers' className='m-0 space-y-3'>
                       <div className='grid gap-3'>
                         {inviteRecords.length > 0 ? (
@@ -593,6 +815,71 @@ export function PromotionCenter() {
         availableQuota={user?.aff_quota ?? 0}
         transferring={transferring}
       />
+
+      <Dialog open={withdrawOpen} onOpenChange={setWithdrawOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('Withdraw cash commission')}</DialogTitle>
+            <DialogDescription>
+              {t('All settled cash commission will be locked for review.')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className='grid gap-3'>
+            <div className='rounded-lg border p-3'>
+              <div className='text-muted-foreground text-xs'>
+                {t('Withdrawable cash')}
+              </div>
+              <div className='mt-1 text-lg font-semibold tabular-nums'>
+                {formatCashCents(availableCashCents, cashCurrency)}
+              </div>
+            </div>
+            <div className='grid gap-1.5'>
+              <label className='text-sm font-medium'>{t('Payout method')}</label>
+              <Input
+                value={payoutMethod}
+                onChange={(event) => setPayoutMethod(event.target.value)}
+                placeholder='alipay / wechat / bank'
+              />
+            </div>
+            <div className='grid gap-1.5'>
+              <label className='text-sm font-medium'>{t('Payout account')}</label>
+              <Input
+                value={payoutAccount}
+                onChange={(event) => setPayoutAccount(event.target.value)}
+              />
+            </div>
+            <div className='grid gap-1.5'>
+              <label className='text-sm font-medium'>{t('Remark')}</label>
+              <Textarea
+                value={payoutRemark}
+                onChange={(event) => setPayoutRemark(event.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type='button'
+              variant='outline'
+              onClick={() => setWithdrawOpen(false)}
+            >
+              {t('Cancel')}
+            </Button>
+            <Button
+              type='button'
+              onClick={handleSubmitWithdrawal}
+              disabled={
+                cashActionLoading ||
+                availableCashCents <= 0 ||
+                !payoutMethod.trim() ||
+                !payoutAccount.trim()
+              }
+            >
+              {t('Submit withdrawal')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
@@ -694,6 +981,55 @@ function StatusGuide() {
           </p>
         </div>
       ))}
+    </div>
+  )
+}
+
+function PromotionEventRow({ event }: { event: PromotionEvent }) {
+  const { t } = useTranslation()
+  const quotaDelta = Number(event.quota_delta || 0)
+  const cashAmountCents = Number(event.cash_amount_cents || 0)
+  const title = PROMOTION_EVENT_TITLES[event.event_type] || event.title || event.event_type
+  const amountParts = [
+    quotaDelta !== 0
+      ? `${quotaDelta > 0 ? '+' : ''}${formatQuota(quotaDelta)}`
+      : '',
+    cashAmountCents !== 0
+      ? `${cashAmountCents > 0 ? '+' : ''}${formatCashCents(
+          cashAmountCents,
+          event.currency || 'CNY'
+        )}`
+      : '',
+  ].filter(Boolean)
+
+  return (
+    <div className='grid gap-2 p-3 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-start'>
+      <div className='bg-muted/30 flex size-9 items-center justify-center rounded-lg border'>
+        <History className='text-muted-foreground size-4' />
+      </div>
+      <div className='min-w-0'>
+        <div className='flex flex-wrap items-center gap-2'>
+          <div className='truncate text-sm font-medium'>{t(title)}</div>
+          {event.status ? (
+            <Badge variant={statusVariant(event.status)}>
+              {t(event.status)}
+            </Badge>
+          ) : null}
+        </div>
+        <div className='text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs'>
+          <span>{formatTime(event.created_at)}</span>
+          {event.source_table ? (
+            <span>
+              {event.source_table}
+              {event.source_id ? ` #${event.source_id}` : ''}
+            </span>
+          ) : null}
+          {event.remark ? <span>{event.remark}</span> : null}
+        </div>
+      </div>
+      <div className='text-sm font-semibold tabular-nums md:text-right'>
+        {amountParts.length > 0 ? amountParts.join(' / ') : '-'}
+      </div>
     </div>
   )
 }

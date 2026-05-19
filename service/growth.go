@@ -340,6 +340,10 @@ func ListPromotionWithdrawals(userId int, pageInfo *common.PageInfo) ([]*model.P
 	return model.ListPromotionWithdrawals(userId, pageInfo)
 }
 
+func GetCheckinStats(userId int, month string) (map[string]interface{}, error) {
+	return model.GetUserCheckinStats(userId, month)
+}
+
 func AdminListPromotionWithdrawals(pageInfo *common.PageInfo) ([]*model.PromotionWithdrawal, int64, error) {
 	return model.AdminListPromotionWithdrawals(pageInfo)
 }
@@ -858,16 +862,17 @@ func growthRewardItemProgressTargetQuota(item *model.GrowthRewardItem) int64 {
 }
 
 func resolveGrowthRewardQuotaRange(item *model.GrowthRewardItem) (int, int) {
-	if item.RewardQuota > 0 {
-		return item.RewardQuota, item.RewardQuota
-	}
 	setting := operation_setting.GetGrowthSetting()
-	switch item.Code {
-	case model.GrowthRewardItemDailyCheckin:
+	if item.Code == model.GrowthRewardItemDailyCheckin {
 		if setting.DailyCheckinEnabled {
 			return normalizeRewardQuotaRange(setting.DailyCheckinMinRewardQuota, setting.DailyCheckinMaxRewardQuota)
 		}
 		return 0, 0
+	}
+	if item.RewardQuota > 0 {
+		return item.RewardQuota, item.RewardQuota
+	}
+	switch item.Code {
 	case model.GrowthRewardItemCreateFirstAPIKey:
 		return setting.FirstAPIKeyRewardQuota, setting.FirstAPIKeyRewardQuota
 	case model.GrowthRewardItemFirstAPIRequest:
@@ -999,30 +1004,40 @@ func claimDailyCheckin(userId int, item *model.GrowthRewardItem) (*model.GrowthR
 	if completed {
 		return nil, errors.New("already checked in today")
 	}
-	checkin, err := model.UserCheckin(userId)
+	rewardQuota, err := model.CalculateCheckinQuota()
 	if err != nil {
 		return nil, err
 	}
 	now := time.Now().Unix()
-	reward := &model.GrowthReward{
-		UserId:      userId,
-		ItemCode:    item.Code,
-		RewardQuota: checkin.QuotaAwarded,
-		Status:      model.GrowthRewardStatusSettled,
-		SourceId:    checkin.Id,
-		AvailableAt: now,
-		CreatedAt:   now,
-		SettledAt:   now,
-		Remark:      "",
-	}
-	if err := model.DB.Create(reward).Error; err != nil {
+	checkin := model.NewCheckinRecord(userId, rewardQuota)
+	reward := model.NewSettledGrowthReward(userId, item.Code, rewardQuota, 0, "")
+	reward.CreatedAt = now
+	reward.AvailableAt = now
+	reward.SettledAt = now
+	err = model.DB.Transaction(func(tx *gorm.DB) error {
+		if err := lockUserForRewardTx(tx, userId); err != nil {
+			return err
+		}
+		completed, err := rewardItemCompletedTx(tx, userId, item)
+		if err != nil {
+			return err
+		}
+		if completed {
+			return errors.New("already checked in today")
+		}
+		if err := checkRewardBudgetTx(tx, userId, rewardQuota); err != nil {
+			return err
+		}
+		if err := tx.Create(checkin).Error; err != nil {
+			return errors.New("签到失败，请稍后重试")
+		}
+		reward.SourceId = checkin.Id
+		return model.CreateSettledGrowthRewardTx(tx, reward)
+	})
+	if err != nil {
 		return nil, err
 	}
-	if err := model.DB.Transaction(func(tx *gorm.DB) error {
-		return model.CreateGrowthRewardEventTx(tx, reward)
-	}); err != nil {
-		return nil, err
-	}
+	_ = model.InvalidateUserCache(userId)
 	model.RecordLog(userId, model.LogTypeSystem, fmt.Sprintf("用户签到，获得额度 %s", logger.LogQuota(checkin.QuotaAwarded)))
 	return reward, nil
 }

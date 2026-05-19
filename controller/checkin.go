@@ -1,13 +1,11 @@
 package controller
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/logger"
-	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/gin-gonic/gin"
 )
@@ -23,7 +21,7 @@ func GetCheckinStatus(c *gin.Context) {
 	// 获取月份参数，默认为当前月份
 	month := c.DefaultQuery("month", time.Now().Format("2006-01"))
 
-	stats, err := model.GetUserCheckinStats(userId, month)
+	stats, err := service.GetCheckinStats(userId, month)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
@@ -53,7 +51,7 @@ func DoCheckin(c *gin.Context) {
 
 	userId := c.GetInt("id")
 
-	checkin, err := model.UserCheckin(userId)
+	reward, err := service.ClaimGrowthRewardItem(userId, "daily_checkin", "")
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"success": false,
@@ -61,12 +59,11 @@ func DoCheckin(c *gin.Context) {
 		})
 		return
 	}
-	model.RecordLog(userId, model.LogTypeSystem, fmt.Sprintf("用户签到，获得额度 %s", logger.LogQuota(checkin.QuotaAwarded)))
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "签到成功",
 		"data": gin.H{
-			"quota_awarded": checkin.QuotaAwarded,
-			"checkin_date":  checkin.CheckinDate},
+			"quota_awarded": reward.RewardQuota,
+			"checkin_date":  time.Now().Format("2006-01-02")},
 	})
 }

@@ -50,6 +50,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Turnstile } from '@/components/turnstile'
 import { SectionPageLayout } from '@/components/layout'
 import { NotFoundError } from '@/features/errors/not-found-error'
 import {
@@ -65,6 +66,7 @@ import {
 
 const JOIN_COMMUNITY_CODE = 'join_community'
 const MONTHLY_SPEND_TARGET_CODE = 'monthly_spend_target'
+const DAILY_CHECKIN_CODE = 'daily_checkin'
 
 const CONTENT_REWARD_COPY: Record<
   string,
@@ -102,6 +104,9 @@ export function Growth() {
   const [submissionUrl, setSubmissionUrl] = useState('')
   const [submissionRemark, setSubmissionRemark] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [turnstileDialogItem, setTurnstileDialogItem] =
+    useState<GrowthRewardItem | null>(null)
+  const [turnstileWidgetKey, setTurnstileWidgetKey] = useState(0)
 
   const automaticRewardItems = useMemo(
     () => rewardItems.filter((item) => item.item_type === 'auto'),
@@ -145,16 +150,52 @@ export function Growth() {
     loadData()
   }, [loadData, status?.growth_center_enabled, statusLoading])
 
-  const claimRewardItem = async (code: string, password?: string) => {
+  const shouldTriggerTurnstile = useCallback(
+    (message?: string) => {
+      if (status?.turnstile_check !== true) return false
+      if (typeof message !== 'string') return true
+      return message.includes('Turnstile')
+    },
+    [status?.turnstile_check]
+  )
+
+  const claimRewardItem = async (
+    code: string,
+    password?: string,
+    turnstileToken?: string
+  ) => {
     try {
       setClaimingCode(code)
       const payload = password ? { password } : undefined
-      const res = await api.post(`/api/growth/items/${code}/claim`, payload)
+      const url = turnstileToken
+        ? `/api/growth/items/${code}/claim?turnstile=${encodeURIComponent(
+            turnstileToken
+          )}`
+        : `/api/growth/items/${code}/claim`
+      const res = await api.post(url, payload)
       if (res.data?.success) {
         toast.success(t('Reward claimed'))
         setPasswordDialogItem(null)
+        setTurnstileDialogItem(null)
         setTaskPassword('')
         await loadData()
+      } else if (
+        code === DAILY_CHECKIN_CODE &&
+        !turnstileToken &&
+        shouldTriggerTurnstile(res.data?.message)
+      ) {
+        if (!status?.turnstile_site_key) {
+          toast.error(t('Turnstile is enabled but site key is empty.'))
+          return
+        }
+        const item = rewardItems.find((rewardItem) => rewardItem.code === code)
+        if (item) setTurnstileDialogItem(item)
+      } else if (
+        code === DAILY_CHECKIN_CODE &&
+        turnstileToken &&
+        shouldTriggerTurnstile(res.data?.message)
+      ) {
+        setTurnstileWidgetKey((value) => value + 1)
       }
     } finally {
       setClaimingCode('')
@@ -165,6 +206,14 @@ export function Growth() {
     if (item.code === JOIN_COMMUNITY_CODE) {
       setTaskPassword('')
       setPasswordDialogItem(item)
+      return
+    }
+    if (item.code === DAILY_CHECKIN_CODE && status?.turnstile_check === true) {
+      if (!status?.turnstile_site_key) {
+        toast.error(t('Turnstile is enabled but site key is empty.'))
+        return
+      }
+      setTurnstileDialogItem(item)
       return
     }
     claimRewardItem(item.code)
@@ -713,6 +762,42 @@ export function Growth() {
                 </DialogFooter>
               </form>
             </DialogContent>
+          </Dialog>
+          <Dialog
+            open={Boolean(turnstileDialogItem)}
+            onOpenChange={(open) => {
+              if (!open) {
+                setTurnstileDialogItem(null)
+                setTurnstileWidgetKey((value) => value + 1)
+              }
+            }}
+          >
+            {turnstileDialogItem ? (
+              <DialogContent className='sm:max-w-md'>
+                <DialogHeader>
+                  <DialogTitle>{t('Security Check')}</DialogTitle>
+                  <DialogDescription>
+                    {t('Please complete the security check to continue.')}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className='flex justify-center py-4'>
+                  <Turnstile
+                    key={turnstileWidgetKey}
+                    siteKey={String(status?.turnstile_site_key || '')}
+                    onVerify={(token) => {
+                      claimRewardItem(
+                        turnstileDialogItem.code,
+                        undefined,
+                        token
+                      )
+                    }}
+                    onExpire={() => {
+                      setTurnstileWidgetKey((value) => value + 1)
+                    }}
+                  />
+                </div>
+              </DialogContent>
+            ) : null}
           </Dialog>
         </div>
       </SectionPageLayout.Content>

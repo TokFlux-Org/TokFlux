@@ -49,15 +49,36 @@ func HasCheckedInToday(userId int) (bool, error) {
 	return count > 0, err
 }
 
+func CalculateCheckinQuota() (int, error) {
+	growthSetting := operation_setting.GetGrowthSetting()
+	if !growthSetting.DailyCheckinEnabled {
+		return 0, errors.New("签到功能未启用")
+	}
+	if growthSetting.DailyCheckinMinRewardQuota < 0 || growthSetting.DailyCheckinMaxRewardQuota < 0 {
+		return 0, errors.New("签到奖励额度配置错误")
+	}
+
+	quotaAwarded := growthSetting.DailyCheckinMinRewardQuota
+	if growthSetting.DailyCheckinMaxRewardQuota > growthSetting.DailyCheckinMinRewardQuota {
+		quotaAwarded = growthSetting.DailyCheckinMinRewardQuota + rand.Intn(growthSetting.DailyCheckinMaxRewardQuota-growthSetting.DailyCheckinMinRewardQuota+1)
+	}
+	return quotaAwarded, nil
+}
+
+func NewCheckinRecord(userId int, quotaAwarded int) *Checkin {
+	today := time.Now().Format("2006-01-02")
+	return &Checkin{
+		UserId:       userId,
+		CheckinDate:  today,
+		QuotaAwarded: quotaAwarded,
+		CreatedAt:    time.Now().Unix(),
+	}
+}
+
 // UserCheckin 执行用户签到
 // MySQL 和 PostgreSQL 使用事务保证原子性
 // SQLite 不支持嵌套事务，使用顺序操作 + 手动回滚
 func UserCheckin(userId int) (*Checkin, error) {
-	growthSetting := operation_setting.GetGrowthSetting()
-	if !growthSetting.DailyCheckinEnabled {
-		return nil, errors.New("签到功能未启用")
-	}
-
 	// 检查今天是否已签到
 	hasChecked, err := HasCheckedInToday(userId)
 	if err != nil {
@@ -68,18 +89,11 @@ func UserCheckin(userId int) (*Checkin, error) {
 	}
 
 	// 计算随机额度奖励
-	quotaAwarded := growthSetting.DailyCheckinMinRewardQuota
-	if growthSetting.DailyCheckinMaxRewardQuota > growthSetting.DailyCheckinMinRewardQuota {
-		quotaAwarded = growthSetting.DailyCheckinMinRewardQuota + rand.Intn(growthSetting.DailyCheckinMaxRewardQuota-growthSetting.DailyCheckinMinRewardQuota+1)
+	quotaAwarded, err := CalculateCheckinQuota()
+	if err != nil {
+		return nil, err
 	}
-
-	today := time.Now().Format("2006-01-02")
-	checkin := &Checkin{
-		UserId:       userId,
-		CheckinDate:  today,
-		QuotaAwarded: quotaAwarded,
-		CreatedAt:    time.Now().Unix(),
-	}
+	checkin := NewCheckinRecord(userId, quotaAwarded)
 
 	// 根据数据库类型选择不同的策略
 	if common.UsingSQLite {

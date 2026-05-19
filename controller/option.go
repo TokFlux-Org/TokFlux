@@ -158,6 +158,10 @@ func UpdateOption(c *gin.Context) {
 			return
 		}
 	}
+	if err = validateGrowthSettingOption(option.Key, option.Value.(string)); err != nil {
+		common.ApiErrorMsg(c, err.Error())
+		return
+	}
 	switch option.Key {
 	case "GitHubOAuthEnabled":
 		if option.Value == "true" && common.GitHubClientId == "" {
@@ -350,4 +354,27 @@ func UpdateOption(c *gin.Context) {
 		"success": true,
 		"message": "",
 	})
+}
+
+func validateGrowthSettingOption(key string, value string) error {
+	growthSetting := operation_setting.GetGrowthSetting()
+	switch key {
+	case "growth_setting.daily_checkin_min_reward_quota":
+		minQuota, err := strconv.Atoi(value)
+		if err != nil || minQuota < 0 {
+			return fmt.Errorf("签到最小奖励额度必须是非负整数")
+		}
+		if growthSetting.DailyCheckinMaxRewardQuota >= 0 && minQuota > growthSetting.DailyCheckinMaxRewardQuota {
+			return fmt.Errorf("签到最小奖励额度不能大于最大奖励额度")
+		}
+	case "growth_setting.daily_checkin_max_reward_quota":
+		maxQuota, err := strconv.Atoi(value)
+		if err != nil || maxQuota < 0 {
+			return fmt.Errorf("签到最大奖励额度必须是非负整数")
+		}
+		if maxQuota < growthSetting.DailyCheckinMinRewardQuota {
+			return fmt.Errorf("签到最大奖励额度不能小于最小奖励额度")
+		}
+	}
+	return nil
 }

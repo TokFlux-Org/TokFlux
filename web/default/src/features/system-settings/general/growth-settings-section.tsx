@@ -39,27 +39,47 @@ import { Switch } from '@/components/ui/switch'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
 
-const schema = z.object({
-  enabled: z.boolean(),
-  dailyCheckinEnabled: z.boolean(),
-  dailyCheckinMinRewardQuota: z.coerce.number().int().min(0),
-  dailyCheckinMaxRewardQuota: z.coerce.number().int().min(0),
-  firstAPIKeyRewardQuota: z.coerce.number().int().min(0),
-  firstAPIRequestRewardQuota: z.coerce.number().int().min(0),
-  firstTopUpRewardQuota: z.coerce.number().int().min(0),
-  threeDayUsageRewardQuota: z.coerce.number().int().min(0),
-  monthlySpendRewardQuota: z.coerce.number().int().min(0),
-  monthlySpendTargetQuota: z.coerce.number().int().min(0),
-  inviteRebatePercentage: z.coerce.number().min(0),
-  inviteFirstRequestRewardQuota: z.coerce.number().int().min(0),
-  inviteFirstTopUpRewardQuota: z.coerce.number().int().min(0),
-  rebateFreezeDays: z.coerce.number().int().min(0),
-  userDailyRewardLimitQuota: z.coerce.number().int().min(0),
-  siteDailyBudgetQuota: z.coerce.number().int().min(0),
-  submissionEnabled: z.boolean(),
-  submissionMinRewardQuota: z.coerce.number().int().min(0),
-  submissionMaxRewardQuota: z.coerce.number().int().min(0),
-})
+const schema = z
+  .object({
+    enabled: z.boolean(),
+    dailyCheckinEnabled: z.boolean(),
+    dailyCheckinMinRewardQuota: z.coerce.number().int().min(0),
+    dailyCheckinMaxRewardQuota: z.coerce.number().int().min(0),
+    firstAPIKeyRewardQuota: z.coerce.number().int().min(0),
+    firstAPIRequestRewardQuota: z.coerce.number().int().min(0),
+    firstTopUpRewardQuota: z.coerce.number().int().min(0),
+    threeDayUsageRewardQuota: z.coerce.number().int().min(0),
+    monthlySpendRewardQuota: z.coerce.number().int().min(0),
+    monthlySpendTargetQuota: z.coerce.number().int().min(0),
+    inviteRebatePercentage: z.coerce.number().min(0),
+    inviteFirstRequestRewardQuota: z.coerce.number().int().min(0),
+    inviteFirstTopUpRewardQuota: z.coerce.number().int().min(0),
+    rebateFreezeDays: z.coerce.number().int().min(0),
+    userDailyRewardLimitQuota: z.coerce.number().int().min(0),
+    siteDailyBudgetQuota: z.coerce.number().int().min(0),
+    submissionEnabled: z.boolean(),
+    submissionMinRewardQuota: z.coerce.number().int().min(0),
+    submissionMaxRewardQuota: z.coerce.number().int().min(0),
+  })
+  .refine(
+    (values) =>
+      values.dailyCheckinMaxRewardQuota >=
+      values.dailyCheckinMinRewardQuota,
+    {
+      path: ['dailyCheckinMaxRewardQuota'],
+      message:
+        'Maximum check-in quota must be greater than or equal to the minimum.',
+    }
+  )
+  .refine(
+    (values) =>
+      values.submissionMaxRewardQuota >= values.submissionMinRewardQuota,
+    {
+      path: ['submissionMaxRewardQuota'],
+      message:
+        'Submission maximum reward must be greater than or equal to the minimum.',
+    }
+  )
 
 type Values = z.infer<typeof schema>
 type NumberFieldName = Exclude<

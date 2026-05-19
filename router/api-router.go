@@ -152,9 +152,9 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			growthRoute.GET("/summary", controller.GetGrowthSummary)
 			growthRoute.GET("/items", controller.GetGrowthRewardItems)
-			growthRoute.POST("/items/:code/claim", controller.ClaimGrowthRewardItem)
+			growthRoute.POST("/items/:code/claim", middleware.TurnstileCheck(), controller.ClaimGrowthRewardItem)
 			growthRoute.GET("/tasks", controller.GetGrowthRewardItems)
-			growthRoute.POST("/tasks/:code/claim", controller.ClaimGrowthRewardItem)
+			growthRoute.POST("/tasks/:code/claim", middleware.TurnstileCheck(), controller.ClaimGrowthRewardItem)
 			growthRoute.GET("/rewards", controller.GetGrowthRewards)
 			growthRoute.GET("/events", controller.GetPromotionEvents)
 			growthRoute.POST("/submissions", controller.CreateGrowthSubmission)

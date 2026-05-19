@@ -171,10 +171,12 @@ type CreemWebhookEvent struct {
 	EventType string `json:"eventType"`
 	CreatedAt int64  `json:"created_at"`
 	Object    struct {
-		Id        string `json:"id"`
-		Object    string `json:"object"`
-		RequestId string `json:"request_id"`
-		Order     struct {
+		Id           string `json:"id"`
+		Object       string `json:"object"`
+		RequestId    string `json:"request_id"`
+		Amount       int    `json:"amount"`
+		RefundAmount int    `json:"refund_amount"`
+		Order        struct {
 			Object      string `json:"object"`
 			Id          string `json:"id"`
 			Customer    string `json:"customer"`
@@ -192,6 +194,24 @@ type CreemWebhookEvent struct {
 			UpdatedAt   string `json:"updated_at"`
 			Mode        string `json:"mode"`
 		} `json:"order"`
+		Transaction struct {
+			Id             string `json:"id"`
+			Object         string `json:"object"`
+			Amount         int    `json:"amount"`
+			AmountPaid     int    `json:"amount_paid"`
+			Currency       string `json:"currency"`
+			Status         string `json:"status"`
+			RefundedAmount int    `json:"refunded_amount"`
+			Order          string `json:"order"`
+			Subscription   string `json:"subscription"`
+		} `json:"transaction"`
+		Checkout struct {
+			Id        string            `json:"id"`
+			Object    string            `json:"object"`
+			RequestId string            `json:"request_id"`
+			Status    string            `json:"status"`
+			Metadata  map[string]string `json:"metadata"`
+		} `json:"checkout"`
 		Product struct {
 			Id                string  `json:"id"`
 			Object            string  `json:"object"`
@@ -276,10 +296,57 @@ func CreemWebhook(c *gin.Context) {
 	switch webhookEvent.EventType {
 	case "checkout.completed":
 		handleCheckoutCompleted(c, &webhookEvent)
+	case "refund.created":
+		handleCreemRefund(c, &webhookEvent)
+	case "dispute.created":
+		handleCreemDispute(c, &webhookEvent)
 	default:
 		logger.LogInfo(c.Request.Context(), fmt.Sprintf("Creem webhook 忽略事件 event_type=%s event_id=%s", webhookEvent.EventType, webhookEvent.Id))
 		c.Status(http.StatusOK)
 	}
+}
+
+func handleCreemRefund(c *gin.Context, event *CreemWebhookEvent) {
+	referenceId := firstNonEmptyString(
+		event.Object.RequestId,
+		event.Object.Checkout.RequestId,
+		event.Object.Metadata["trade_no"],
+		event.Object.Metadata["reference_id"],
+		event.Object.Checkout.Metadata["trade_no"],
+		event.Object.Checkout.Metadata["reference_id"],
+	)
+	refundTradeNo := firstNonEmptyString(event.Object.Id, event.Object.Transaction.Id, event.Object.Order.Transaction, event.Id, event.EventType)
+	if referenceId == "" {
+		logger.LogWarn(c.Request.Context(), fmt.Sprintf("Creem 退款事件缺少本地订单号 event_type=%s event_id=%s refund_trade_no=%s", event.EventType, event.Id, refundTradeNo))
+		c.Status(http.StatusOK)
+		return
+	}
+	if event.Object.RefundAmount > 0 && event.Object.Transaction.AmountPaid > 0 && event.Object.RefundAmount < event.Object.Transaction.AmountPaid {
+		logger.LogWarn(c.Request.Context(), fmt.Sprintf("Creem 部分退款需人工核对推广返佣 trade_no=%s refund_trade_no=%s refund_amount=%d amount_paid=%d", referenceId, refundTradeNo, event.Object.RefundAmount, event.Object.Transaction.AmountPaid))
+		c.Status(http.StatusOK)
+		return
+	}
+	reverseInvitationRebateByTradeNoFromWebhook(c.Request.Context(), model.PaymentProviderCreem, referenceId, refundTradeNo, "creem refund")
+	c.Status(http.StatusOK)
+}
+
+func handleCreemDispute(c *gin.Context, event *CreemWebhookEvent) {
+	referenceId := firstNonEmptyString(
+		event.Object.RequestId,
+		event.Object.Checkout.RequestId,
+		event.Object.Metadata["trade_no"],
+		event.Object.Metadata["reference_id"],
+		event.Object.Checkout.Metadata["trade_no"],
+		event.Object.Checkout.Metadata["reference_id"],
+	)
+	disputeTradeNo := firstNonEmptyString(event.Object.Id, event.Object.Transaction.Id, event.Id, event.EventType)
+	if referenceId == "" {
+		logger.LogWarn(c.Request.Context(), fmt.Sprintf("Creem 拒付事件缺少本地订单号 event_type=%s event_id=%s dispute_trade_no=%s", event.EventType, event.Id, disputeTradeNo))
+		c.Status(http.StatusOK)
+		return
+	}
+	reverseInvitationRebateByTradeNoFromWebhook(c.Request.Context(), model.PaymentProviderCreem, referenceId, disputeTradeNo, "creem dispute")
+	c.Status(http.StatusOK)
 }
 
 // 处理支付完成事件

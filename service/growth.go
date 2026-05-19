@@ -201,13 +201,17 @@ func TransferAllSettledPromotionCommissionsToQuota(userId int) (int, error) {
 			return errors.New("no quota equivalent available")
 		}
 		now := common.GetTimestamp()
-		if err := tx.Model(&model.PromotionCommissionLedger{}).
-			Where("id IN ?", ledgerIds).
+		res := tx.Model(&model.PromotionCommissionLedger{}).
+			Where("id IN ? AND user_id = ? AND status = ? AND cashable = ?", ledgerIds, userId, model.PromotionCommissionStatusSettled, true).
 			Updates(map[string]interface{}{
 				"status":         model.PromotionCommissionStatusTransferred,
 				"transferred_at": now,
-			}).Error; err != nil {
-			return err
+			})
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected != int64(len(ledgerIds)) {
+			return errors.New("commission status changed, please retry")
 		}
 		if err := tx.Model(&model.User{}).
 			Where("id = ?", userId).
@@ -298,13 +302,17 @@ func CreatePromotionWithdrawal(userId int, req PromotionWithdrawalRequest) (*mod
 		if err := tx.Create(&items).Error; err != nil {
 			return err
 		}
-		if err := tx.Model(&model.PromotionCommissionLedger{}).
-			Where("id IN ?", ledgerIds).
+		res := tx.Model(&model.PromotionCommissionLedger{}).
+			Where("id IN ? AND user_id = ? AND status = ? AND cashable = ?", ledgerIds, userId, model.PromotionCommissionStatusSettled, true).
 			Updates(map[string]interface{}{
 				"status": model.PromotionCommissionStatusWithdrawing,
 				"remark": fmt.Sprintf("withdrawal #%d, quota_equivalent=%d", nextWithdrawal.Id, quotaEquivalent),
-			}).Error; err != nil {
-			return err
+			})
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected != int64(len(ledgerIds)) {
+			return errors.New("commission status changed, please retry")
 		}
 		if err := model.CreatePromotionEventTx(tx, &model.PromotionEvent{
 			UserId:          userId,
@@ -486,11 +494,12 @@ func releasePromotionWithdrawalLedgersTx(tx *gorm.DB, withdrawalId int, targetSt
 		return nil
 	}
 	updates := map[string]interface{}{"status": targetStatus}
+	sourceStatus := model.PromotionCommissionStatusWithdrawing
 	if targetStatus == model.PromotionCommissionStatusWithdrawn {
 		updates["withdrawn_at"] = common.GetTimestamp()
 	}
 	return tx.Model(&model.PromotionCommissionLedger{}).
-		Where("id IN (?)", tx.Model(&model.PromotionWithdrawalItem{}).Select("ledger_id").Where("withdrawal_id = ?", withdrawalId)).
+		Where("status = ? AND id IN (?)", sourceStatus, tx.Model(&model.PromotionWithdrawalItem{}).Select("ledger_id").Where("withdrawal_id = ?", withdrawalId)).
 		Updates(updates).Error
 }
 

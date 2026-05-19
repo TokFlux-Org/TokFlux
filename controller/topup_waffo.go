@@ -367,6 +367,18 @@ func WaffoWebhook(c *gin.Context) {
 		}
 		logger.LogInfo(c.Request.Context(), fmt.Sprintf("Waffo webhook 验签并解析成功 event_type=%s merchant_order_id=%s order_status=%s client_ip=%s", event.EventType, payload.Result.MerchantOrderID, payload.Result.OrderStatus, c.ClientIP()))
 		handleWaffoPayment(c, wh, &payload.Result.PaymentNotificationResult)
+	case core.EventRefund:
+		var payload core.RefundNotification
+		if err := common.Unmarshal(bodyBytes, &payload); err != nil || payload.Result == nil {
+			if err == nil {
+				err = errors.New("missing refund result")
+			}
+			logger.LogError(c.Request.Context(), fmt.Sprintf("Waffo 退款回调载荷解析失败 event_type=%s client_ip=%s error=%q body=%q", event.EventType, c.ClientIP(), err.Error(), bodyStr))
+			sendWaffoWebhookResponse(c, wh, false, "invalid refund payload")
+			return
+		}
+		logger.LogInfo(c.Request.Context(), fmt.Sprintf("Waffo webhook 验签并解析成功 event_type=%s orig_payment_request_id=%s refund_request_id=%s refund_status=%s client_ip=%s", event.EventType, payload.Result.OrigPaymentRequestID, payload.Result.RefundRequestID, payload.Result.RefundStatus, c.ClientIP()))
+		handleWaffoRefund(c, wh, payload.Result)
 	default:
 		logger.LogInfo(c.Request.Context(), fmt.Sprintf("Waffo webhook 忽略事件 event_type=%s client_ip=%s", event.EventType, c.ClientIP()))
 		sendWaffoWebhookResponse(c, wh, true, "")
@@ -401,6 +413,23 @@ func handleWaffoPayment(c *gin.Context, wh *core.WebhookHandler, result *core.Pa
 	}
 
 	logger.LogInfo(c.Request.Context(), fmt.Sprintf("Waffo 充值成功 trade_no=%s client_ip=%s", merchantOrderId, c.ClientIP()))
+	sendWaffoWebhookResponse(c, wh, true, "")
+}
+
+func handleWaffoRefund(c *gin.Context, wh *core.WebhookHandler, result *core.RefundNotificationResult) {
+	if result.RefundStatus != core.RefundStatusFullyRefunded {
+		if result.RefundStatus == core.RefundStatusPartiallyRefunded {
+			logger.LogWarn(c.Request.Context(), fmt.Sprintf("Waffo 部分退款需人工核对推广返佣 trade_no=%s refund_request_id=%s refund_amount=%s client_ip=%s", result.OrigPaymentRequestID, result.RefundRequestID, result.RefundAmount, c.ClientIP()))
+		} else {
+			logger.LogInfo(c.Request.Context(), fmt.Sprintf("Waffo 退款状态未完成，忽略返佣冲正 trade_no=%s refund_request_id=%s refund_status=%s client_ip=%s", result.OrigPaymentRequestID, result.RefundRequestID, result.RefundStatus, c.ClientIP()))
+		}
+		sendWaffoWebhookResponse(c, wh, true, "")
+		return
+	}
+
+	tradeNo := firstNonEmptyString(result.OrigPaymentRequestID, result.AcquiringOrderID)
+	refundTradeNo := firstNonEmptyString(result.RefundRequestID, result.AcquiringRefundOrderID, core.EventRefund)
+	reverseInvitationRebateByTradeNoFromWebhook(c.Request.Context(), model.PaymentProviderWaffo, tradeNo, refundTradeNo, "waffo refund")
 	sendWaffoWebhookResponse(c, wh, true, "")
 }
 

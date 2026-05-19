@@ -232,6 +232,79 @@ func TestReverseInvitationRebate_TransferredCashCommissionDeductsQuota(t *testin
 	assert.NotZero(t, ledger.ReversedAt)
 }
 
+func TestReverseInvitationRebateByTradeNo_ReversesRebateAndLedger(t *testing.T) {
+	truncateTables(t)
+	setInvitationRebateFreezeDaysForTest(t, 0)
+
+	insertInviterAndInviteeForRebateTest(t, 661, 662)
+	topUp := &TopUp{
+		UserId:          662,
+		Amount:          10,
+		Money:           20,
+		TradeNo:         "rebate-tradeno-reversal",
+		PaymentMethod:   "alipay",
+		PaymentProvider: PaymentProviderEpay,
+		CreateTime:      time.Now().Unix(),
+		CompleteTime:    time.Now().Unix(),
+		Status:          common.TopUpStatusSuccess,
+	}
+	require.NoError(t, topUp.Insert())
+	rebate, err := SettleInvitationRebateTx(DB, topUp)
+	require.NoError(t, err)
+	require.NotNil(t, rebate)
+
+	reversed, err := ReverseInvitationRebateByTradeNo("rebate-tradeno-reversal", "refund-tradeno-reversal", "refund")
+	require.NoError(t, err)
+	require.NotNil(t, reversed)
+	assert.Equal(t, InvitationRebateStatusReversed, reversed.Status)
+	assert.Equal(t, "refund-tradeno-reversal", reversed.RefundTradeNo)
+	assert.Equal(t, reversed.RebateQuota, reversed.ReversalQuota)
+	assert.NotZero(t, reversed.ReversedAt)
+
+	ledger := getPromotionCommissionLedgerForTest(t, 661)
+	assert.Equal(t, PromotionCommissionStatusReversed, ledger.Status)
+	assert.Equal(t, "refund-tradeno-reversal", ledger.RefundTradeNo)
+	assert.Equal(t, ledger.NetAmountCents, ledger.ReversalAmountCents)
+	assert.Equal(t, ledger.QuotaEquivalent, ledger.ReversalQuota)
+}
+
+func TestReverseInvitationRebateByTradeNo_IsIdempotent(t *testing.T) {
+	truncateTables(t)
+	setInvitationRebateFreezeDaysForTest(t, 0)
+
+	insertInviterAndInviteeForRebateTest(t, 671, 672)
+	topUp := &TopUp{
+		UserId:          672,
+		Amount:          10,
+		Money:           20,
+		TradeNo:         "rebate-idempotent-reversal",
+		PaymentMethod:   "alipay",
+		PaymentProvider: PaymentProviderEpay,
+		CreateTime:      time.Now().Unix(),
+		CompleteTime:    time.Now().Unix(),
+		Status:          common.TopUpStatusSuccess,
+	}
+	require.NoError(t, topUp.Insert())
+	_, err := SettleInvitationRebateTx(DB, topUp)
+	require.NoError(t, err)
+
+	first, err := ReverseInvitationRebateByTradeNo("rebate-idempotent-reversal", "refund-idempotent-first", "refund")
+	require.NoError(t, err)
+	require.NotNil(t, first)
+	second, err := ReverseInvitationRebateByTradeNo("rebate-idempotent-reversal", "refund-idempotent-second", "refund")
+	require.NoError(t, err)
+	require.NotNil(t, second)
+
+	assert.Equal(t, InvitationRebateStatusReversed, second.Status)
+	assert.Equal(t, "refund-idempotent-first", second.RefundTradeNo)
+
+	var count int64
+	require.NoError(t, DB.Model(&PromotionEvent{}).
+		Where("source_table = ? AND source_id = ? AND event_type = ?", PromotionEventSourceCommissionLedger, getPromotionCommissionLedgerForTest(t, 671).Id, PromotionEventTypeCommissionReversed).
+		Count(&count).Error)
+	assert.Equal(t, int64(1), count)
+}
+
 func TestSyncInvitationRebatesForInviter_ExcludesSubscriptionTopUps(t *testing.T) {
 	truncateTables(t)
 	setInvitationRebateFreezeDaysForTest(t, 0)

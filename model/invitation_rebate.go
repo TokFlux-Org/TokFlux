@@ -353,6 +353,30 @@ func ReverseInvitationRebateByTopUp(topUpId int, refundTradeNo string, remark st
 	return rebate, err
 }
 
+func ReverseInvitationRebateByTradeNo(tradeNo string, refundTradeNo string, remark string) (*InvitationRebate, error) {
+	if tradeNo == "" {
+		return nil, nil
+	}
+	var rebate *InvitationRebate
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		topUp := &TopUp{}
+		err := tx.Set("gorm:query_option", "FOR UPDATE").Where("trade_no = ?", tradeNo).First(topUp).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		reversedRebate, err := ReverseInvitationRebateByTopUpTx(tx, topUp.Id, refundTradeNo, remark)
+		if err != nil {
+			return err
+		}
+		rebate = reversedRebate
+		return nil
+	})
+	return rebate, err
+}
+
 func RecordInvitationRebateLog(rebate *InvitationRebate) {
 	if rebate == nil {
 		return

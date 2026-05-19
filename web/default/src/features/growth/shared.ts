@@ -27,6 +27,7 @@ export type GrowthSummary = {
   total_rebate_quota: number
   aff_code: string
   invite_rebate_percent: number
+  invitation_chain_reward_quota: number
   cash_commission?: PromotionCommissionSummary
 }
 

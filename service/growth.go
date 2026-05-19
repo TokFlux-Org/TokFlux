@@ -14,15 +14,16 @@ import (
 )
 
 type GrowthSummary struct {
-	AvailableRewardQuota int64                      `json:"available_reward_quota"`
-	PendingRewardQuota   int64                      `json:"pending_reward_quota"`
-	TotalRewardQuota     int64                      `json:"total_reward_quota"`
-	InviteCount          int                        `json:"invite_count"`
-	MonthlyRebateQuota   int64                      `json:"monthly_rebate_quota"`
-	TotalRebateQuota     int                        `json:"total_rebate_quota"`
-	AffCode              string                     `json:"aff_code"`
-	InviteRebatePercent  float64                    `json:"invite_rebate_percent"`
-	CashCommission       PromotionCommissionSummary `json:"cash_commission"`
+	AvailableRewardQuota       int64                      `json:"available_reward_quota"`
+	PendingRewardQuota         int64                      `json:"pending_reward_quota"`
+	TotalRewardQuota           int64                      `json:"total_reward_quota"`
+	InviteCount                int                        `json:"invite_count"`
+	MonthlyRebateQuota         int64                      `json:"monthly_rebate_quota"`
+	TotalRebateQuota           int                        `json:"total_rebate_quota"`
+	AffCode                    string                     `json:"aff_code"`
+	InviteRebatePercent        float64                    `json:"invite_rebate_percent"`
+	InvitationChainRewardQuota int                        `json:"invitation_chain_reward_quota"`
+	CashCommission             PromotionCommissionSummary `json:"cash_commission"`
 }
 
 type PromotionCommissionSummary struct {
@@ -129,16 +130,29 @@ func GetGrowthSummary(userId int) (*GrowthSummary, error) {
 	}
 
 	return &GrowthSummary{
-		AvailableRewardQuota: rewardSummary.AvailableRewardQuota,
-		PendingRewardQuota:   rewardSummary.PendingRewardQuota + pendingInvitationRebate,
-		TotalRewardQuota:     rewardSummary.TotalRewardQuota,
-		InviteCount:          user.AffCount,
-		MonthlyRebateQuota:   monthlyRebate + monthlyInvitationReward,
-		TotalRebateQuota:     user.AffHistoryQuota,
-		AffCode:              user.AffCode,
-		InviteRebatePercent:  common.InviteRebatePercentage,
-		CashCommission:       *cashSummary,
+		AvailableRewardQuota:       rewardSummary.AvailableRewardQuota,
+		PendingRewardQuota:         rewardSummary.PendingRewardQuota + pendingInvitationRebate,
+		TotalRewardQuota:           rewardSummary.TotalRewardQuota,
+		InviteCount:                user.AffCount,
+		MonthlyRebateQuota:         monthlyRebate + monthlyInvitationReward,
+		TotalRebateQuota:           user.AffHistoryQuota,
+		AffCode:                    user.AffCode,
+		InviteRebatePercent:        common.InviteRebatePercentage,
+		InvitationChainRewardQuota: invitationChainRewardQuota(),
+		CashCommission:             *cashSummary,
 	}, nil
+}
+
+func invitationChainRewardQuota() int {
+	growthSetting := operation_setting.GetGrowthSetting()
+	total := common.QuotaForInviter
+	if growthSetting.InviteFirstRequestRewardQuota > 0 {
+		total += growthSetting.InviteFirstRequestRewardQuota
+	}
+	if growthSetting.InviteFirstTopUpRewardQuota > 0 {
+		total += growthSetting.InviteFirstTopUpRewardQuota
+	}
+	return total
 }
 
 func GetPromotionCommissionSummary(userId int) (*PromotionCommissionSummary, error) {

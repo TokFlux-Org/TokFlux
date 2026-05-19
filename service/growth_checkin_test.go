@@ -3,6 +3,7 @@ package service
 import (
 	"testing"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/stretchr/testify/assert"
@@ -105,4 +106,27 @@ func TestDailyCheckinListUsesConfiguredQuotaRange(t *testing.T) {
 	assert.Equal(t, 1000000, checkinItem.RewardQuota)
 	assert.Equal(t, 1000000, checkinItem.RewardQuotaMin)
 	assert.Equal(t, 50000000, checkinItem.RewardQuotaMax)
+}
+
+func TestGrowthSummaryIncludesInvitationGuideValue(t *testing.T) {
+	truncate(t)
+	seedUser(t, 3104, 100)
+	oldQuotaForInviter := common.QuotaForInviter
+	oldInviteRebatePercentage := common.InviteRebatePercentage
+	t.Cleanup(func() {
+		common.QuotaForInviter = oldQuotaForInviter
+		common.InviteRebatePercentage = oldInviteRebatePercentage
+	})
+	common.QuotaForInviter = 100
+	common.InviteRebatePercentage = 10
+	withGrowthSetting(t, func(setting *operation_setting.GrowthSetting) {
+		setting.InviteFirstRequestRewardQuota = 200
+		setting.InviteFirstTopUpRewardQuota = 300
+	})
+
+	summary, err := GetGrowthSummary(3104)
+	require.NoError(t, err)
+	require.NotNil(t, summary)
+	assert.Equal(t, 600, summary.InvitationChainRewardQuota)
+	assert.Equal(t, 10.0, summary.InviteRebatePercent)
 }

@@ -17,7 +17,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from '@tanstack/react-router'
 import {
+  ArrowRight,
   CheckCircle2,
   ClipboardList,
   Coins,
@@ -27,6 +29,7 @@ import {
   Globe2,
   KeyRound,
   LinkIcon,
+  Megaphone,
   RefreshCw,
   Send,
   Sparkles,
@@ -225,6 +228,21 @@ export function Growth() {
     [t('Total Rewards'), summary?.total_reward_quota || 0, Coins],
   ] as const
 
+  const invitationChainRewardQuota =
+    summary?.invitation_chain_reward_quota || 0
+  const inviteRebatePercent = Number(summary?.invite_rebate_percent || 0)
+  const showInvitationGuide =
+    invitationChainRewardQuota > 0 || inviteRebatePercent > 0
+  const invitationGuideValue =
+    invitationChainRewardQuota > 0 && inviteRebatePercent > 0
+      ? t('{{quota}} + {{rate}}% top-up rebate', {
+          quota: formatQuota(invitationChainRewardQuota),
+          rate: inviteRebatePercent,
+        })
+      : invitationChainRewardQuota > 0
+        ? formatQuota(invitationChainRewardQuota)
+        : t('{{rate}}% top-up rebate', { rate: inviteRebatePercent })
+
   const rewardItemTitle = useCallback(
     (itemOrCode: GrowthRewardItem | string) => {
       const code = typeof itemOrCode === 'string' ? itemOrCode : itemOrCode.code
@@ -346,6 +364,72 @@ export function Growth() {
               </Card>
             ))}
           </div>
+
+          {showInvitationGuide ? (
+            <Card className='py-0'>
+              <CardContent className='grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center'>
+                <div className='flex min-w-0 gap-3'>
+                  <div className='bg-muted flex size-10 shrink-0 items-center justify-center rounded-lg'>
+                    <Megaphone className='text-muted-foreground size-5' />
+                  </div>
+                  <div className='min-w-0 space-y-2'>
+                    <div className='flex flex-wrap items-center gap-2'>
+                      <h2 className='text-sm font-semibold'>
+                        {t('Invite friends and earn rewards')}
+                      </h2>
+                      <Badge variant='secondary'>{t('Recommended')}</Badge>
+                    </div>
+                    <p className='text-muted-foreground text-xs leading-5'>
+                      {t(
+                        'Earn milestone rewards when invited users register, make their first request, or complete their first top-up. Their later top-ups can continue generating rebates.'
+                      )}
+                    </p>
+                    <div className='grid gap-2 text-xs sm:grid-cols-3'>
+                      <div className='rounded-md border p-2'>
+                        <div className='text-muted-foreground'>
+                          {t('Invited users')}
+                        </div>
+                        <div className='mt-1 font-semibold tabular-nums'>
+                          {summary?.invite_count || 0}
+                        </div>
+                      </div>
+                      <div className='rounded-md border p-2'>
+                        <div className='text-muted-foreground'>
+                          {t('This month')}
+                        </div>
+                        <div className='mt-1 font-semibold tabular-nums'>
+                          {formatQuota(summary?.monthly_rebate_quota || 0)}
+                        </div>
+                      </div>
+                      <div className='rounded-md border p-2'>
+                        <div className='text-muted-foreground'>
+                          {t('Total earned')}
+                        </div>
+                        <div className='mt-1 font-semibold tabular-nums'>
+                          {formatQuota(summary?.total_rebate_quota || 0)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className='flex flex-col gap-3 md:items-end'>
+                  <div className='space-y-1 md:text-right'>
+                    <div className='text-muted-foreground text-xs'>
+                      {t('Estimated value')}
+                    </div>
+                    <div className='text-base font-semibold tabular-nums'>
+                      {invitationGuideValue}
+                    </div>
+                  </div>
+                  <Button type='button' render={<Link to='/promotion' />}>
+                    <Megaphone className='size-4' />
+                    {t('Go invite')}
+                    <ArrowRight className='size-4' />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
 
           <div className='grid gap-4'>
             {automaticRewardItems.length > 0 ? (

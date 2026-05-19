@@ -47,6 +47,10 @@ func TestMain(m *testing.M) {
 		&model.PromotionCommissionLedger{},
 		&model.PromotionWithdrawal{},
 		&model.PromotionWithdrawalItem{},
+		&model.GrowthRewardItem{},
+		&model.GrowthReward{},
+		&model.GrowthSubmission{},
+		&model.Checkin{},
 		&model.UserSubscription{},
 	); err != nil {
 		panic("failed to migrate: " + err.Error())
@@ -72,6 +76,10 @@ func truncate(t *testing.T) {
 		model.DB.Exec("DELETE FROM promotion_commission_ledgers")
 		model.DB.Exec("DELETE FROM promotion_withdrawals")
 		model.DB.Exec("DELETE FROM promotion_withdrawal_items")
+		model.DB.Exec("DELETE FROM growth_reward_items")
+		model.DB.Exec("DELETE FROM growth_rewards")
+		model.DB.Exec("DELETE FROM growth_submissions")
+		model.DB.Exec("DELETE FROM checkins")
 		model.DB.Exec("DELETE FROM user_subscriptions")
 	})
 }

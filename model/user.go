@@ -18,6 +18,8 @@ import (
 )
 
 const UserNameMaxLength = 20
+const affCodeLength = 8
+const affCodeGenerateMaxAttempts = 12
 
 // User if you add sensitive fields, don't forget to clean them in setupLogin function.
 // Otherwise, the sensitive information will be saved on local storage in plain text!
@@ -316,6 +318,23 @@ func GetUserIdByAffCode(affCode string) (int, error) {
 	return user.Id, err
 }
 
+func generateUniqueAffCode(tx *gorm.DB) (string, error) {
+	if tx == nil {
+		tx = DB
+	}
+	for i := 0; i < affCodeGenerateMaxAttempts; i++ {
+		code := common.GetRandomString(affCodeLength)
+		var count int64
+		if err := tx.Model(&User{}).Where("aff_code = ?", code).Count(&count).Error; err != nil {
+			return "", err
+		}
+		if count == 0 {
+			return code, nil
+		}
+	}
+	return "", errors.New("failed to generate unique aff code")
+}
+
 func DeleteUserById(id int) (err error) {
 	if id == 0 {
 		return errors.New("id 为空！")
@@ -419,7 +438,10 @@ func (user *User) Insert(inviterId int) error {
 	}
 	user.Quota = common.QuotaForNewUser
 	//user.SetAccessToken(common.GetUUID())
-	user.AffCode = common.GetRandomString(4)
+	user.AffCode, err = generateUniqueAffCode(DB)
+	if err != nil {
+		return err
+	}
 
 	// 初始化用户设置，包括默认的边栏配置
 	if user.Setting == "" {
@@ -477,7 +499,10 @@ func (user *User) InsertWithTx(tx *gorm.DB, inviterId int) error {
 		}
 	}
 	user.Quota = common.QuotaForNewUser
-	user.AffCode = common.GetRandomString(4)
+	user.AffCode, err = generateUniqueAffCode(tx)
+	if err != nil {
+		return err
+	}
 
 	// 初始化用户设置
 	if user.Setting == "" {

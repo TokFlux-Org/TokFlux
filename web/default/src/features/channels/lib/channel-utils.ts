@@ -52,6 +52,7 @@ export function getChannelTypeIcon(type: number): string {
     7: 'OpenAI', // OhMyGPT
     8: 'OpenAI', // Custom
     3: 'Azure', // Azure
+    58: 'XiaomiMiMo', // MiMO
 
     // Anthropic
     14: 'Claude', // Anthropic

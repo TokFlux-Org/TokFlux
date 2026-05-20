@@ -83,6 +83,16 @@ export const CHANNEL_TYPE_CONFIGS: Record<number, ChannelTypeConfig> = {
       models: 'claude-3-opus,claude-3-sonnet,claude-3-haiku',
     },
   },
+  58: {
+    id: 58,
+    name: CHANNEL_TYPES[58],
+    icon: 'openai',
+    defaultBaseUrl: 'https://api.xiaomimimo.com',
+    hints: {
+      baseUrl: 'Default: https://api.xiaomimimo.com',
+      models: 'OpenAI-compatible or Anthropic-compatible model IDs',
+    },
+  },
   24: {
     id: 24,
     name: CHANNEL_TYPES[24],

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -49,6 +50,11 @@ type OpenAIModel struct {
 type OpenAIModelsResponse struct {
 	Data    []OpenAIModel `json:"data"`
 	Success bool          `json:"success"`
+}
+
+func normalizeFetchModelsBaseURL(baseURL string) string {
+	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	return strings.TrimSuffix(baseURL, "/v1")
 }
 
 func parseStatusFilter(statusParam string) int {
@@ -1010,6 +1016,7 @@ func FetchModels(c *gin.Context) {
 	if baseURL == "" {
 		baseURL = constant.ChannelBaseURLs[req.Type]
 	}
+	baseURL = normalizeFetchModelsBaseURL(baseURL)
 
 	// remove line breaks and extra spaces.
 	key := strings.TrimSpace(req.Key)
@@ -1076,15 +1083,20 @@ func FetchModels(c *gin.Context) {
 		})
 		return
 	}
+	defer response.Body.Close()
 	//check status code
 	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(response.Body, 2048))
+		message := fmt.Sprintf("Failed to fetch models: upstream status %d", response.StatusCode)
+		if detail := strings.TrimSpace(string(body)); detail != "" {
+			message = fmt.Sprintf("%s, response: %s", message, detail)
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
-			"message": "Failed to fetch models",
+			"message": message,
 		})
 		return
 	}
-	defer response.Body.Close()
 
 	var result struct {
 		Data []struct {

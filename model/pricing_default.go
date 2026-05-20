@@ -2,6 +2,8 @@ package model
 
 import (
 	"strings"
+
+	"github.com/QuantumNous/new-api/constant"
 )
 
 // 简化的供应商映射规则
@@ -30,6 +32,7 @@ var defaultVendorRules = map[string]string{
 	"jina":     "Jina",
 	"mistral":  "Mistral",
 	"grok":     "xAI",
+	"mimo":     "MiMO",
 	"llama":    "Meta",
 	"doubao":   "字节跳动",
 	"kling":    "快手",
@@ -57,6 +60,7 @@ var defaultVendorIcons = map[string]string{
 	"Jina":       "Jina",
 	"Mistral":    "Mistral.Color",
 	"xAI":        "XAI",
+	"MiMO":       "XiaomiMiMo",
 	"Meta":       "Ollama",
 	"字节跳动":       "Doubao.Color",
 	"快手":         "Kling.Color",
@@ -77,11 +81,16 @@ func initDefaultVendorMapping(metaMap map[string]*Model, vendorMap map[int]*Vend
 
 		// 匹配供应商
 		vendorID := 0
+		if ability.ChannelType == constant.ChannelTypeMiMO {
+			vendorID = getOrCreateVendor("MiMO", vendorMap)
+		}
 		modelLower := strings.ToLower(modelName)
-		for pattern, vendorName := range defaultVendorRules {
-			if strings.Contains(modelLower, pattern) {
-				vendorID = getOrCreateVendor(vendorName, vendorMap)
-				break
+		if vendorID == 0 {
+			for pattern, vendorName := range defaultVendorRules {
+				if strings.Contains(modelLower, pattern) {
+					vendorID = getOrCreateVendor(vendorName, vendorMap)
+					break
+				}
 			}
 		}
 

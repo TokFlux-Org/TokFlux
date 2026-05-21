@@ -26,6 +26,7 @@ func TestMain(m *testing.M) {
 	common.RedisEnabled = false
 	common.BatchUpdateEnabled = false
 	common.LogConsumeEnabled = true
+	initCol()
 
 	sqlDB, err := db.DB()
 	if err != nil {
@@ -39,6 +40,7 @@ func TestMain(m *testing.M) {
 		&Token{},
 		&Log{},
 		&Channel{},
+		&Ability{},
 		&TopUp{},
 		&InvitationRebate{},
 		&InvitationReward{},
@@ -53,6 +55,7 @@ func TestMain(m *testing.M) {
 		&GrowthReward{},
 		&GrowthSubmission{},
 		&Checkin{},
+		&PerfMetric{},
 	); err != nil {
 		panic("failed to migrate: " + err.Error())
 	}
@@ -68,6 +71,7 @@ func truncateTables(t *testing.T) {
 		DB.Exec("DELETE FROM tokens")
 		DB.Exec("DELETE FROM logs")
 		DB.Exec("DELETE FROM channels")
+		DB.Exec("DELETE FROM abilities")
 		DB.Exec("DELETE FROM top_ups")
 		DB.Exec("DELETE FROM invitation_rebates")
 		DB.Exec("DELETE FROM invitation_rewards")
@@ -82,6 +86,7 @@ func truncateTables(t *testing.T) {
 		DB.Exec("DELETE FROM growth_rewards")
 		DB.Exec("DELETE FROM growth_submissions")
 		DB.Exec("DELETE FROM checkins")
+		DB.Exec("DELETE FROM perf_metrics")
 	})
 }
 

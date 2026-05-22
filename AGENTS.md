@@ -4,6 +4,16 @@
 
 This is an AI API gateway/proxy built with Go. It aggregates 40+ upstream AI providers (OpenAI, Claude, Gemini, Azure, AWS Bedrock, etc.) behind a unified API, with user management, billing, rate limiting, and an admin dashboard.
 
+## Business Positioning
+
+This repository powers the official production business/service. Although the codebase contains API gateway, provider aggregation, billing, and admin-console capabilities, product positioning should be treated as a hosted commercial AI service/platform, not primarily as a generic self-hosted open-source gateway.
+
+When evaluating frontend copy, UX, onboarding, or homepage content, prioritize:
+- customer acquisition and conversion for the official service;
+- clear API access, pricing, recharge, model availability, and account workflows;
+- operational trust, support, and service reliability;
+- avoiding copy that makes the site look like only a self-hosting project or developer template.
+
 ## Tech Stack
 
 - **Backend**: Go 1.22+, Gin web framework, GORM v2 ORM

@@ -51,21 +51,28 @@ export function Hero(props: HeroProps) {
       />
 
       <div className='flex max-w-3xl flex-col items-center text-center'>
+        <p className='landing-animate-fade-up text-muted-foreground mb-4 text-xs font-medium tracking-widest uppercase'>
+          {t(
+            'TokFlux provides unified large model API access for OpenAI, Claude, Gemini, DeepSeek and more.'
+          )}
+        </p>
         <h1
           className='landing-animate-fade-up text-[clamp(2rem,5.5vw,3.5rem)] leading-[1.15] font-bold tracking-tight'
           style={{ animationDelay: '0ms' }}
         >
-          {t('Unified API Gateway for')}
+          {t('Unified AI access for')}
           <br />
           <span className='bg-gradient-to-r from-blue-400 via-violet-400 to-purple-500 bg-clip-text text-transparent'>
-            {t('All Your AI Models')}
+            {t('Leading AI Models')}
           </span>
         </h1>
         <p
           className='landing-animate-fade-up text-muted-foreground/80 mt-5 max-w-lg text-base leading-relaxed opacity-0 md:text-lg'
           style={{ animationDelay: '80ms' }}
         >
-          {t('Power AI applications, manage digital assets, connect the Future')}
+          {t(
+            'Access leading AI models through one account, with unified keys, billing, and usage visibility.'
+          )}
         </p>
         <div
           className='landing-animate-fade-up mt-8 flex items-center gap-3 opacity-0'

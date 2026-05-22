@@ -61,7 +61,7 @@ export function CTA(props: CTAProps) {
         </h2>
         <p className='text-muted-foreground/80 mx-auto mt-5 max-w-md text-sm leading-relaxed md:text-base'>
           {t(
-            'Deploy your own gateway and start routing requests through your configured upstream services.'
+            'Create an account, get an API key, and start building with available models.'
           )}
         </p>
         <div className='mt-8 flex items-center justify-center gap-3'>

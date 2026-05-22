@@ -121,8 +121,9 @@ export const DEFAULT_FEATURES = [
     iconName: 'Users',
   },
   {
-    title: 'Open Source',
-    description: 'Community driven, self-hosted, and extensible',
+    title: 'Production Ready',
+    description:
+      'Built for reliable service operations with flexible configuration',
     iconName: 'HeartHandshake',
   },
 ] as const

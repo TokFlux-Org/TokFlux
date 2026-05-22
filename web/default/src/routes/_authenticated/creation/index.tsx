@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { AppHeader, Main } from '@/components/layout'
+import { Main } from '@/components/layout'
 import { CreationLauncher } from '@/features/creation'
 
 export const Route = createFileRoute('/_authenticated/creation/')({
@@ -8,11 +8,8 @@ export const Route = createFileRoute('/_authenticated/creation/')({
 
 function CreationPage() {
   return (
-    <>
-      <AppHeader />
-      <Main className='p-0'>
-        <CreationLauncher />
-      </Main>
-    </>
+    <Main className='p-0'>
+      <CreationLauncher />
+    </Main>
   )
 }

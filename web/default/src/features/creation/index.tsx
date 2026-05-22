@@ -78,6 +78,11 @@ export function CreationLauncher() {
     return typeof value === 'string' ? value.trim() : ''
   }, [status])
 
+  const selectedToken = useMemo(
+    () => tokens.find((token) => String(token.id) === selectedTokenId),
+    [tokens, selectedTokenId]
+  )
+
   useEffect(() => {
     let mounted = true
 
@@ -177,7 +182,11 @@ export function CreationLauncher() {
               disabled={loading || opening}
             >
               <SelectTrigger>
-                <SelectValue placeholder={t('Select an API key')} />
+                <SelectValue placeholder={t('Select an API key')}>
+                  {selectedToken
+                    ? selectedToken.name || `#${selectedToken.id}`
+                    : undefined}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {tokens.map((token) => (

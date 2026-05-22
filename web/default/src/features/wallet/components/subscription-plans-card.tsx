@@ -52,7 +52,11 @@ import {
   updateBillingPreference,
 } from '@/features/subscriptions/api'
 import { SubscriptionPurchaseDialog } from '@/features/subscriptions/components/dialogs/subscription-purchase-dialog'
-import { formatDuration, formatResetPeriod } from '@/features/subscriptions/lib'
+import {
+  formatDuration,
+  formatResetPeriod,
+  formatSupportedGroups,
+} from '@/features/subscriptions/lib'
 import type {
   PlanRecord,
   UserSubscriptionRecord,
@@ -396,7 +400,13 @@ export function SubscriptionPlansCard({
                   const remainAmount =
                     totalAmount > 0 ? Math.max(0, totalAmount - usedAmount) : 0
                   const planTitle =
-                    planTitleMap.get(subscription?.plan_id) || ''
+                    sub.plan?.title ||
+                    planTitleMap.get(subscription?.plan_id) ||
+                    ''
+                  const supportedGroups =
+                    subscription?.supported_groups ||
+                    sub.plan?.supported_groups ||
+                    []
                   const remainDays = getRemainingDays(sub)
                   const usagePercent = getUsagePercent(sub)
                   const now = Date.now() / 1000
@@ -488,6 +498,10 @@ export function SubscriptionPlansCard({
                           </span>
                         )}
                       </div>
+                      <div className='text-muted-foreground mt-1'>
+                        {t('Supported Groups')}:{' '}
+                        {formatSupportedGroups(supportedGroups, t)}
+                      </div>
                       {totalAmount > 0 && isActive && (
                         <Progress value={usagePercent} className='mt-2 h-1.5' />
                       )}
@@ -526,6 +540,7 @@ export function SubscriptionPlansCard({
                 totalAmount > 0
                   ? `${t('Total Quota')}: ${formatQuota(totalAmount)}`
                   : `${t('Total Quota')}: ${t('Unlimited')}`,
+                `${t('Supported Groups')}: ${formatSupportedGroups(plan.supported_groups, t)}`,
                 limit > 0 ? `${t('Purchase Limit')}: ${limit}` : null,
                 plan.upgrade_group
                   ? `${t('Upgrade Group')}: ${plan.upgrade_group}`

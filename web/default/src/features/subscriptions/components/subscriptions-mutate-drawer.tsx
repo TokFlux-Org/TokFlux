@@ -33,6 +33,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { MultiSelect } from '@/components/multi-select'
 import {
   Select,
   SelectContent,
@@ -383,6 +384,31 @@ export function SubscriptionsMutateDrawer({
                           </SelectGroup>
                         </SelectContent>
                       </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='supported_groups'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('Supported Groups')}</FormLabel>
+                      <FormControl>
+                        <MultiSelect
+                          options={groupOptions.map((g) => ({
+                            value: g,
+                            label: g,
+                          }))}
+                          selected={field.value || []}
+                          onChange={field.onChange}
+                          placeholder={t('All groups')}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        {t('Leave empty to allow all groups')}
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

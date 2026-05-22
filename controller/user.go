@@ -608,7 +608,7 @@ func GetUserModels(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	groups := service.GetUserUsableGroups(user.Group)
+	groups := service.GetUserUsableGroupsForUser(id, user.Group)
 	requestedGroup := strings.TrimSpace(c.Query("group"))
 	var models []string
 

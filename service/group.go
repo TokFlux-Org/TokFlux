@@ -3,6 +3,7 @@ package service
 import (
 	"strings"
 
+	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 )
@@ -41,9 +42,52 @@ func GroupInUserUsableGroups(userGroup, groupName string) bool {
 	return ok
 }
 
+func GetUserUsableGroupsForUser(userId int, userGroup string) map[string]string {
+	groups := GetUserUsableGroups(userGroup)
+	if userId <= 0 {
+		return groups
+	}
+	subGroups, allGroups, err := model.GetActiveSubscriptionSupportedGroups(userId)
+	if err != nil {
+		return groups
+	}
+	if allGroups {
+		for group := range ratio_setting.GetGroupRatioCopy() {
+			if _, ok := groups[group]; !ok {
+				groups[group] = setting.GetUsableGroupDescription(group)
+			}
+		}
+		return groups
+	}
+	for _, group := range subGroups {
+		if !ratio_setting.ContainsGroupRatio(group) {
+			continue
+		}
+		if _, ok := groups[group]; !ok {
+			groups[group] = setting.GetUsableGroupDescription(group)
+		}
+	}
+	return groups
+}
+
+func GroupInUserUsableGroupsForUser(userId int, userGroup, groupName string) bool {
+	_, ok := GetUserUsableGroupsForUser(userId, userGroup)[groupName]
+	return ok
+}
+
 // GetUserAutoGroup 根据用户分组获取自动分组设置
 func GetUserAutoGroup(userGroup string) []string {
 	groups := GetUserUsableGroups(userGroup)
+	return getAutoGroupsFromUsableGroups(groups)
+}
+
+// GetUserAutoGroupForUser 根据用户分组和订阅权益获取自动分组设置
+func GetUserAutoGroupForUser(userId int, userGroup string) []string {
+	groups := GetUserUsableGroupsForUser(userId, userGroup)
+	return getAutoGroupsFromUsableGroups(groups)
+}
+
+func getAutoGroupsFromUsableGroups(groups map[string]string) []string {
 	autoGroups := make([]string, 0)
 	for _, group := range setting.GetAutoGroups() {
 		if _, ok := groups[group]; ok {

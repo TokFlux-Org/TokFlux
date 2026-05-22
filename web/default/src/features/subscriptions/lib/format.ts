@@ -64,3 +64,13 @@ export function formatTimestamp(ts: number): string {
   if (!ts) return '-'
   return dayjs(ts * 1000).format('YYYY-MM-DD HH:mm:ss')
 }
+
+export function formatSupportedGroups(
+  groups: string[] | undefined,
+  t: TFunction
+): string {
+  if (!groups || groups.length === 0) {
+    return t('All groups')
+  }
+  return groups.join(', ')
+}

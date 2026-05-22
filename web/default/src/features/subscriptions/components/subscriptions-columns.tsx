@@ -208,6 +208,37 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
         size: 100,
       },
       {
+        id: 'supported_groups',
+        meta: { label: t('Supported Groups'), mobileHidden: true },
+        header: ({ column }) => (
+          <DataTableColumnHeader
+            column={column}
+            title={t('Supported Groups')}
+          />
+        ),
+        cell: ({ row }) => {
+          const groups = row.original.plan.supported_groups || []
+          if (groups.length === 0) {
+            return (
+              <span className='text-muted-foreground'>{t('All groups')}</span>
+            )
+          }
+          return (
+            <div className='flex max-w-[180px] flex-wrap gap-1'>
+              {groups.slice(0, 3).map((group) => (
+                <GroupBadge key={group} group={group} size='sm' />
+              ))}
+              {groups.length > 3 && (
+                <span className='text-muted-foreground text-xs'>
+                  +{groups.length - 3}
+                </span>
+              )}
+            </div>
+          )
+        },
+        size: 160,
+      },
+      {
         id: 'actions',
         cell: ({ row }) => <DataTableRowActions row={row} />,
         size: 80,

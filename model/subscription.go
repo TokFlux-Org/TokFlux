@@ -1,6 +1,7 @@
 package model
 
 import (
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"strconv"
@@ -141,6 +142,90 @@ func InvalidateSubscriptionPlanCache(planId int) {
 	_ = infoCache.Purge()
 }
 
+type SubscriptionGroupList []string
+
+func normalizeSubscriptionGroups(groups []string) SubscriptionGroupList {
+	if len(groups) == 0 {
+		return SubscriptionGroupList{}
+	}
+	seen := make(map[string]struct{}, len(groups))
+	normalized := make(SubscriptionGroupList, 0, len(groups))
+	for _, group := range groups {
+		group = strings.TrimSpace(group)
+		if group == "" {
+			continue
+		}
+		if _, ok := seen[group]; ok {
+			continue
+		}
+		seen[group] = struct{}{}
+		normalized = append(normalized, group)
+	}
+	return normalized
+}
+
+func (g SubscriptionGroupList) Value() (driver.Value, error) {
+	normalized := normalizeSubscriptionGroups(g)
+	if len(normalized) == 0 {
+		return "", nil
+	}
+	data, err := common.Marshal([]string(normalized))
+	if err != nil {
+		return nil, err
+	}
+	return string(data), nil
+}
+
+func (g *SubscriptionGroupList) Scan(value any) error {
+	if g == nil {
+		return nil
+	}
+	switch v := value.(type) {
+	case nil:
+		*g = SubscriptionGroupList{}
+		return nil
+	case string:
+		return g.scanString(v)
+	case []byte:
+		return g.scanString(string(v))
+	default:
+		return fmt.Errorf("unsupported subscription group list type %T", value)
+	}
+}
+
+func (g *SubscriptionGroupList) scanString(value string) error {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		*g = SubscriptionGroupList{}
+		return nil
+	}
+	var groups []string
+	if err := common.Unmarshal([]byte(value), &groups); err == nil {
+		*g = normalizeSubscriptionGroups(groups)
+		return nil
+	}
+	*g = normalizeSubscriptionGroups(strings.Split(value, ","))
+	return nil
+}
+
+func (g SubscriptionGroupList) MarshalJSON() ([]byte, error) {
+	return common.Marshal([]string(normalizeSubscriptionGroups(g)))
+}
+
+func (g *SubscriptionGroupList) UnmarshalJSON(data []byte) error {
+	var groups []string
+	if err := common.Unmarshal(data, &groups); err == nil {
+		*g = normalizeSubscriptionGroups(groups)
+		return nil
+	}
+	var raw string
+	if err := common.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	*g = normalizeSubscriptionGroups(strings.Split(raw, ","))
+	return nil
+}
+
 // Subscription plan
 type SubscriptionPlan struct {
 	Id int `json:"id"`
@@ -169,6 +254,9 @@ type SubscriptionPlan struct {
 	// Upgrade user group after purchase (empty = no change)
 	UpgradeGroup string `json:"upgrade_group" gorm:"type:varchar(64);default:''"`
 
+	// Supported token/usage groups for subscription quota (empty = all groups)
+	SupportedGroups SubscriptionGroupList `json:"supported_groups" gorm:"type:text;column:supported_groups"`
+
 	// Total quota (amount in quota units, 0 = unlimited)
 	TotalAmount int64 `json:"total_amount" gorm:"type:bigint;not null;default:0"`
 
@@ -180,15 +268,44 @@ type SubscriptionPlan struct {
 	UpdatedAt int64 `json:"updated_at" gorm:"bigint"`
 }
 
+func (p *SubscriptionPlan) NormalizeSupportedGroups() {
+	if p == nil {
+		return
+	}
+	p.SupportedGroups = normalizeSubscriptionGroups(p.SupportedGroups)
+}
+
+func (p *SubscriptionPlan) SupportsGroup(group string) bool {
+	if p == nil {
+		return false
+	}
+	p.NormalizeSupportedGroups()
+	if len(p.SupportedGroups) == 0 {
+		return true
+	}
+	group = strings.TrimSpace(group)
+	if group == "" {
+		return false
+	}
+	for _, supportedGroup := range p.SupportedGroups {
+		if supportedGroup == group {
+			return true
+		}
+	}
+	return false
+}
+
 func (p *SubscriptionPlan) BeforeCreate(tx *gorm.DB) error {
 	now := common.GetTimestamp()
 	p.CreatedAt = now
 	p.UpdatedAt = now
+	p.NormalizeSupportedGroups()
 	return nil
 }
 
 func (p *SubscriptionPlan) BeforeUpdate(tx *gorm.DB) error {
 	p.UpdatedAt = common.GetTimestamp()
+	p.NormalizeSupportedGroups()
 	return nil
 }
 
@@ -252,24 +369,57 @@ type UserSubscription struct {
 	UpgradeGroup  string `json:"upgrade_group" gorm:"type:varchar(64);default:''"`
 	PrevUserGroup string `json:"prev_user_group" gorm:"type:varchar(64);default:''"`
 
+	// Snapshot of plan supported token/usage groups at purchase time (empty = all groups)
+	SupportedGroups SubscriptionGroupList `json:"supported_groups" gorm:"type:text;column:supported_groups"`
+
 	CreatedAt int64 `json:"created_at" gorm:"bigint"`
 	UpdatedAt int64 `json:"updated_at" gorm:"bigint"`
+}
+
+func (s *UserSubscription) NormalizeSupportedGroups() {
+	if s == nil {
+		return
+	}
+	s.SupportedGroups = normalizeSubscriptionGroups(s.SupportedGroups)
+}
+
+func (s *UserSubscription) SupportsGroup(group string) bool {
+	if s == nil {
+		return false
+	}
+	s.NormalizeSupportedGroups()
+	if len(s.SupportedGroups) == 0 {
+		return true
+	}
+	group = strings.TrimSpace(group)
+	if group == "" {
+		return false
+	}
+	for _, supportedGroup := range s.SupportedGroups {
+		if supportedGroup == group {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *UserSubscription) BeforeCreate(tx *gorm.DB) error {
 	now := common.GetTimestamp()
 	s.CreatedAt = now
 	s.UpdatedAt = now
+	s.NormalizeSupportedGroups()
 	return nil
 }
 
 func (s *UserSubscription) BeforeUpdate(tx *gorm.DB) error {
 	s.UpdatedAt = common.GetTimestamp()
+	s.NormalizeSupportedGroups()
 	return nil
 }
 
 type SubscriptionSummary struct {
 	Subscription *UserSubscription `json:"subscription"`
+	Plan         *SubscriptionPlan `json:"plan,omitempty"`
 }
 
 func calcPlanEndTime(start time.Time, plan *SubscriptionPlan) (int64, error) {
@@ -370,6 +520,7 @@ func getSubscriptionPlanByIdTx(tx *gorm.DB, id int) (*SubscriptionPlan, error) {
 	if err := query.Where("id = ?", id).First(&plan).Error; err != nil {
 		return nil, err
 	}
+	plan.NormalizeSupportedGroups()
 	_ = getSubscriptionPlanCache().SetWithTTL(key, plan, subscriptionPlanCacheTTL())
 	return &plan, nil
 }
@@ -485,20 +636,21 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 		}
 	}
 	sub := &UserSubscription{
-		UserId:        userId,
-		PlanId:        plan.Id,
-		AmountTotal:   plan.TotalAmount,
-		AmountUsed:    0,
-		StartTime:     now.Unix(),
-		EndTime:       endUnix,
-		Status:        "active",
-		Source:        source,
-		LastResetTime: lastReset,
-		NextResetTime: nextReset,
-		UpgradeGroup:  upgradeGroup,
-		PrevUserGroup: prevGroup,
-		CreatedAt:     common.GetTimestamp(),
-		UpdatedAt:     common.GetTimestamp(),
+		UserId:          userId,
+		PlanId:          plan.Id,
+		AmountTotal:     plan.TotalAmount,
+		AmountUsed:      0,
+		StartTime:       now.Unix(),
+		EndTime:         endUnix,
+		Status:          "active",
+		Source:          source,
+		LastResetTime:   lastReset,
+		NextResetTime:   nextReset,
+		UpgradeGroup:    upgradeGroup,
+		PrevUserGroup:   prevGroup,
+		SupportedGroups: normalizeSubscriptionGroups(plan.SupportedGroups),
+		CreatedAt:       common.GetTimestamp(),
+		UpdatedAt:       common.GetTimestamp(),
 	}
 	if err := tx.Create(sub).Error; err != nil {
 		return nil, err
@@ -697,6 +849,34 @@ func HasActiveUserSubscription(userId int) (bool, error) {
 	return count > 0, nil
 }
 
+func GetActiveSubscriptionSupportedGroups(userId int) (SubscriptionGroupList, bool, error) {
+	if userId <= 0 {
+		return SubscriptionGroupList{}, false, errors.New("invalid userId")
+	}
+	now := common.GetTimestamp()
+	var subs []UserSubscription
+	if err := DB.Where("user_id = ? AND status = ? AND end_time > ?", userId, "active", now).
+		Find(&subs).Error; err != nil {
+		return SubscriptionGroupList{}, false, err
+	}
+	seen := map[string]struct{}{}
+	groups := make(SubscriptionGroupList, 0)
+	for _, sub := range subs {
+		sub.NormalizeSupportedGroups()
+		if len(sub.SupportedGroups) == 0 {
+			return SubscriptionGroupList{}, true, nil
+		}
+		for _, group := range sub.SupportedGroups {
+			if _, ok := seen[group]; ok {
+				continue
+			}
+			seen[group] = struct{}{}
+			groups = append(groups, group)
+		}
+	}
+	return groups, false, nil
+}
+
 // GetAllUserSubscriptions returns all subscriptions (active and expired) for a user.
 func GetAllUserSubscriptions(userId int) ([]SubscriptionSummary, error) {
 	if userId <= 0 {
@@ -716,12 +896,40 @@ func buildSubscriptionSummaries(subs []UserSubscription) []SubscriptionSummary {
 	if len(subs) == 0 {
 		return []SubscriptionSummary{}
 	}
+	planIds := make([]int, 0, len(subs))
+	seenPlanIds := make(map[int]struct{}, len(subs))
+	for _, sub := range subs {
+		if sub.PlanId <= 0 {
+			continue
+		}
+		if _, ok := seenPlanIds[sub.PlanId]; ok {
+			continue
+		}
+		seenPlanIds[sub.PlanId] = struct{}{}
+		planIds = append(planIds, sub.PlanId)
+	}
+	planMap := make(map[int]SubscriptionPlan, len(planIds))
+	if len(planIds) > 0 {
+		var plans []SubscriptionPlan
+		if err := DB.Where("id IN ?", planIds).Find(&plans).Error; err == nil {
+			for _, plan := range plans {
+				plan.NormalizeSupportedGroups()
+				planMap[plan.Id] = plan
+			}
+		}
+	}
 	result := make([]SubscriptionSummary, 0, len(subs))
 	for _, sub := range subs {
 		subCopy := sub
-		result = append(result, SubscriptionSummary{
+		subCopy.NormalizeSupportedGroups()
+		summary := SubscriptionSummary{
 			Subscription: &subCopy,
-		})
+		}
+		if plan, ok := planMap[sub.PlanId]; ok {
+			planCopy := plan
+			summary.Plan = &planCopy
+		}
+		result = append(result, summary)
 	}
 	return result
 }
@@ -968,7 +1176,7 @@ func maybeResetUserSubscriptionWithPlanTx(tx *gorm.DB, sub *UserSubscription, pl
 }
 
 // PreConsumeUserSubscription pre-consumes from any active subscription total quota.
-func PreConsumeUserSubscription(requestId string, userId int, modelName string, quotaType int, amount int64) (*SubscriptionPreConsumeResult, error) {
+func PreConsumeUserSubscription(requestId string, userId int, modelName string, usingGroup string, quotaType int, amount int64) (*SubscriptionPreConsumeResult, error) {
 	if userId <= 0 {
 		return nil, errors.New("invalid userId")
 	}
@@ -1020,6 +1228,9 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			if err != nil {
 				return err
 			}
+			if !sub.SupportsGroup(usingGroup) {
+				continue
+			}
 			if err := maybeResetUserSubscriptionWithPlanTx(tx, &sub, plan, now); err != nil {
 				return err
 			}
@@ -1063,7 +1274,7 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			returnValue.AmountUsedAfter = sub.AmountUsed
 			return nil
 		}
-		return fmt.Errorf("subscription quota insufficient, need=%d", amount)
+		return fmt.Errorf("subscription quota insufficient or group unsupported, group=%s need=%d", strings.TrimSpace(usingGroup), amount)
 	})
 	if err != nil {
 		return nil, err

@@ -172,3 +172,54 @@ func TestExpireSubscriptionOrder_RejectsMismatchedPaymentProvider(t *testing.T) 
 	require.NotNil(t, order)
 	assert.Equal(t, common.TopUpStatusPending, order.Status)
 }
+
+func TestPreConsumeUserSubscription_RespectsSupportedGroups(t *testing.T) {
+	truncateTables(t)
+
+	insertUserForPaymentGuardTest(t, 901, 0)
+	plan := &SubscriptionPlan{
+		Id:              901,
+		Title:           "Group Plan",
+		PriceAmount:     9.99,
+		Currency:        "USD",
+		DurationUnit:    SubscriptionDurationMonth,
+		DurationValue:   1,
+		Enabled:         true,
+		TotalAmount:     100,
+		SupportedGroups: SubscriptionGroupList{"vip"},
+	}
+	require.NoError(t, DB.Create(plan).Error)
+	_, err := CreateUserSubscriptionFromPlanTx(DB, 901, plan, "test")
+	require.NoError(t, err)
+
+	_, err = PreConsumeUserSubscription("sub-group-default", 901, "gpt-test", "default", 0, 10)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "group unsupported")
+
+	res, err := PreConsumeUserSubscription("sub-group-vip", 901, "gpt-test", "vip", 0, 10)
+	require.NoError(t, err)
+	assert.Equal(t, int64(10), res.PreConsumed)
+}
+
+func TestPreConsumeUserSubscription_EmptySupportedGroupsAllowsAll(t *testing.T) {
+	truncateTables(t)
+
+	insertUserForPaymentGuardTest(t, 902, 0)
+	plan := &SubscriptionPlan{
+		Id:            902,
+		Title:         "All Group Plan",
+		PriceAmount:   9.99,
+		Currency:      "USD",
+		DurationUnit:  SubscriptionDurationMonth,
+		DurationValue: 1,
+		Enabled:       true,
+		TotalAmount:   100,
+	}
+	require.NoError(t, DB.Create(plan).Error)
+	_, err := CreateUserSubscriptionFromPlanTx(DB, 902, plan, "test")
+	require.NoError(t, err)
+
+	res, err := PreConsumeUserSubscription("sub-group-all", 902, "gpt-test", "vip", 0, 10)
+	require.NoError(t, err)
+	assert.Equal(t, int64(10), res.PreConsumed)
+}

@@ -43,7 +43,7 @@ export const CHANNEL_OPTIONS = [
   {
     value: 58,
     color: 'green',
-    label: 'MiMO',
+    label: 'Xiaomi MiMo',
   },
   {
     value: 33,

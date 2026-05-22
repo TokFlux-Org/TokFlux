@@ -76,7 +76,7 @@ export const CHANNEL_TYPES = {
   55: 'Sora',
   56: 'Replicate',
   57: 'Codex',
-  58: 'MiMO',
+  58: 'Xiaomi MiMo',
 } as const
 
 const CHANNEL_TYPE_DISPLAY_ORDER: number[] = [

@@ -32,7 +32,7 @@ var defaultVendorRules = map[string]string{
 	"jina":     "Jina",
 	"mistral":  "Mistral",
 	"grok":     "xAI",
-	"mimo":     "MiMO",
+	"mimo":     "Xiaomi MiMo",
 	"llama":    "Meta",
 	"doubao":   "字节跳动",
 	"kling":    "快手",
@@ -42,33 +42,33 @@ var defaultVendorRules = map[string]string{
 
 // 供应商默认图标映射
 var defaultVendorIcons = map[string]string{
-	"OpenAI":     "OpenAI",
-	"Anthropic":  "Claude.Color",
-	"Google":     "Gemini.Color",
-	"Moonshot":   "Moonshot",
-	"智谱":         "Zhipu.Color",
-	"阿里巴巴":       "Qwen.Color",
-	"DeepSeek":   "DeepSeek.Color",
-	"MiniMax":    "Minimax.Color",
-	"百度":         "Wenxin.Color",
-	"讯飞":         "Spark.Color",
-	"腾讯":         "Hunyuan.Color",
-	"Cohere":     "Cohere.Color",
-	"Cloudflare": "Cloudflare.Color",
-	"360":        "Ai360.Color",
-	"零一万物":       "Yi.Color",
-	"Jina":       "Jina",
-	"Mistral":    "Mistral.Color",
-	"xAI":        "XAI",
-	"MiMO":       "XiaomiMiMo",
-	"Meta":       "Ollama",
-	"字节跳动":       "Doubao.Color",
-	"快手":         "Kling.Color",
-	"即梦":         "Jimeng.Color",
-	"Vidu":       "Vidu",
-	"微软":         "AzureAI",
-	"Microsoft":  "AzureAI",
-	"Azure":      "AzureAI",
+	"OpenAI":      "OpenAI",
+	"Anthropic":   "Claude.Color",
+	"Google":      "Gemini.Color",
+	"Moonshot":    "Moonshot",
+	"智谱":          "Zhipu.Color",
+	"阿里巴巴":        "Qwen.Color",
+	"DeepSeek":    "DeepSeek.Color",
+	"MiniMax":     "Minimax.Color",
+	"百度":          "Wenxin.Color",
+	"讯飞":          "Spark.Color",
+	"腾讯":          "Hunyuan.Color",
+	"Cohere":      "Cohere.Color",
+	"Cloudflare":  "Cloudflare.Color",
+	"360":         "Ai360.Color",
+	"零一万物":        "Yi.Color",
+	"Jina":        "Jina",
+	"Mistral":     "Mistral.Color",
+	"xAI":         "XAI",
+	"Xiaomi MiMo": "XiaomiMiMo",
+	"Meta":        "Ollama",
+	"字节跳动":        "Doubao.Color",
+	"快手":          "Kling.Color",
+	"即梦":          "Jimeng.Color",
+	"Vidu":        "Vidu",
+	"微软":          "AzureAI",
+	"Microsoft":   "AzureAI",
+	"Azure":       "AzureAI",
 }
 
 // initDefaultVendorMapping 简化的默认供应商映射
@@ -82,7 +82,7 @@ func initDefaultVendorMapping(metaMap map[string]*Model, vendorMap map[int]*Vend
 		// 匹配供应商
 		vendorID := 0
 		if ability.ChannelType == constant.ChannelTypeMiMO {
-			vendorID = getOrCreateVendor("MiMO", vendorMap)
+			vendorID = getOrCreateVendor("Xiaomi MiMo", vendorMap)
 		}
 		modelLower := strings.ToLower(modelName)
 		if vendorID == 0 {

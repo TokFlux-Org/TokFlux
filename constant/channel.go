@@ -177,7 +177,7 @@ var ChannelTypeNames = map[int]string{
 	ChannelTypeSora:           "Sora",
 	ChannelTypeReplicate:      "Replicate",
 	ChannelTypeCodex:          "Codex",
-	ChannelTypeMiMO:           "MiMO",
+	ChannelTypeMiMO:           "Xiaomi MiMo",
 }
 
 func GetChannelTypeName(channelType int) string {

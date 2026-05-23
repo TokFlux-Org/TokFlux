@@ -4451,7 +4451,6 @@
     "Tokens per minute": "Jetons par minute",
     "Tokens since launch": "Jetons depuis le lancement",
     "Tokens-only mode will show raw quota values regardless of this toggle.": "Le mode Tokens uniquement affichera les valeurs de quota brutes indépendamment de ce basculement.",
-    "TokFlux provides unified large model API access for OpenAI, Claude, Gemini, DeepSeek and more.": "TokFlux fournit un accès API unifié aux grands modèles OpenAI, Claude, Gemini, DeepSeek et plus encore.",
     "Too many files. Some were not added.": "Trop de fichiers. Certains n'ont pas été ajoutés.",
     "Too many requests": "Trop de requêtes",
     "Tool / function declarations the model may call": "Déclarations d'outils / fonctions que le modèle peut appeler",

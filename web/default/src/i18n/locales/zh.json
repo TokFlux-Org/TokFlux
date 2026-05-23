@@ -4451,7 +4451,6 @@
     "Tokens per minute": "每分钟 Token 数",
     "Tokens since launch": "发布以来累计 Token",
     "Tokens-only mode will show raw quota values regardless of this toggle.": "Tokens-only 模式将无视此开关显示原始配额值。",
-    "TokFlux provides unified large model API access for OpenAI, Claude, Gemini, DeepSeek and more.": "TokFlux 提供 OpenAI、Claude、Gemini、DeepSeek 等大模型 API 统一接入服务。",
     "Too many files. Some were not added.": "文件过多。部分未添加。",
     "Too many requests": "请求过于频繁",
     "Tool / function declarations the model may call": "模型可调用的工具 / 函数声明",

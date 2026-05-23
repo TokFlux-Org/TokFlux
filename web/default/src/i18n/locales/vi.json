@@ -4451,7 +4451,6 @@
     "Tokens per minute": "Số token mỗi phút",
     "Tokens since launch": "Token kể từ khi ra mắt",
     "Tokens-only mode will show raw quota values regardless of this toggle.": "Chế độ Tokens-only sẽ hiển thị giá trị quota thô bất kể tùy chọn này.",
-    "TokFlux provides unified large model API access for OpenAI, Claude, Gemini, DeepSeek and more.": "TokFlux cung cấp truy cập API mô hình lớn thống nhất cho OpenAI, Claude, Gemini, DeepSeek và nhiều mô hình khác.",
     "Too many files. Some were not added.": "Quá nhiều tệp. Một số không được thêm.",
     "Too many requests": "Quá nhiều yêu cầu",
     "Tool / function declarations the model may call": "Khai báo công cụ / hàm mà model có thể gọi",

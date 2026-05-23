@@ -4451,7 +4451,6 @@
     "Tokens per minute": "Токенов в минуту",
     "Tokens since launch": "Токенов с запуска",
     "Tokens-only mode will show raw quota values regardless of this toggle.": "Режим «только токены» будет показывать необработанные значения квот независимо от этого переключателя.",
-    "TokFlux provides unified large model API access for OpenAI, Claude, Gemini, DeepSeek and more.": "TokFlux предоставляет единый API-доступ к большим моделям OpenAI, Claude, Gemini, DeepSeek и другим.",
     "Too many files. Some were not added.": "Слишком много файлов. Некоторые не были добавлены.",
     "Too many requests": "Слишком много запросов",
     "Tool / function declarations the model may call": "Объявления инструментов и функций, которые модель может вызывать",

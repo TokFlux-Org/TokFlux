@@ -51,11 +51,6 @@ export function Hero(props: HeroProps) {
       />
 
       <div className='flex max-w-3xl flex-col items-center text-center'>
-        <p className='landing-animate-fade-up text-muted-foreground mb-4 text-xs font-medium tracking-widest uppercase'>
-          {t(
-            'TokFlux provides unified large model API access for OpenAI, Claude, Gemini, DeepSeek and more.'
-          )}
-        </p>
         <h1
           className='landing-animate-fade-up text-[clamp(2rem,5.5vw,3.5rem)] leading-[1.15] font-bold tracking-tight'
           style={{ animationDelay: '0ms' }}

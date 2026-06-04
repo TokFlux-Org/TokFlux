@@ -71,6 +71,7 @@ export default defineConfig(({ envMode }) => {
     server: {
       host: '0.0.0.0',
       port: devPort,
+      strictPort: true,
       proxy: devProxy,
     },
     output: {

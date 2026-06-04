@@ -1,0 +1,29 @@
+{
+  "name": "new-api-web-workspace",
+  "private": true,
+  "workspaces": [
+    "default",
+    "classic"
+  ],
+  "catalog": {
+    "@lobehub/icons": "^5.10.0",
+    "axios": "^1.16.1",
+    "clsx": "^2.1.1",
+    "dayjs": "^1.11.20",
+    "prettier": "^3.8.3",
+    "qrcode.react": "^4.2.0",
+    "react-icons": "^5.6.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "sse.js": "^2.8.0"
+  },
+  "devDependencies": {
+    "@rsbuild/core": "^2.0.7",
+    "@rsbuild/plugin-react": "^2.0.0",
+    "@tailwindcss/node": "4.3.0",
+    "@tailwindcss/oxide": "4.3.0",
+    "@tailwindcss/postcss": "^4.3.0",
+    "@tanstack/router-generator": "1.167.12",
+    "tailwindcss": "^4.3.0"
+  }
+}

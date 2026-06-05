@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { PricingModel } from '../types'
+import { isGptImage2ModelName, isGptImageModelName } from './image-models'
 import {
   hashStringToSeed,
   randomInRange,
@@ -690,7 +691,7 @@ const EMBEDDING_PARAMS: SupportedParameter[] = [
   },
 ]
 
-const IMAGE_PARAMS: SupportedParameter[] = [
+const DALL_E_IMAGE_PARAMS: SupportedParameter[] = [
   {
     name: 'prompt',
     type: 'string',
@@ -731,6 +732,130 @@ const IMAGE_PARAMS: SupportedParameter[] = [
     enumValues: ['url', 'b64_json'],
     defaultValue: 'url',
     descriptionKey: 'How to deliver the resulting image',
+  },
+]
+
+const GPT_IMAGE_1_SIZE_VALUES = ['auto', '1024x1024', '1536x1024', '1024x1536']
+
+const GPT_IMAGE_2_SIZE_VALUES = [
+  'auto',
+  '1024x1024',
+  '2048x2048',
+  '2048x1152',
+  '1152x2048',
+  '3840x2160',
+  '2160x3840',
+]
+
+function buildGptImageParams(model: PricingModel): SupportedParameter[] {
+  const isGptImage2 = isGptImage2ModelName(model.model_name)
+  const sizeValues = isGptImage2
+    ? GPT_IMAGE_2_SIZE_VALUES
+    : GPT_IMAGE_1_SIZE_VALUES
+
+  return [
+    {
+      name: 'prompt',
+      type: 'string',
+      required: true,
+      descriptionKey: 'Text description of the desired image',
+    },
+    {
+      name: 'size',
+      type: 'enum',
+      enumValues: sizeValues,
+      defaultValue: 'auto',
+      descriptionKey: 'Output image size',
+    },
+    {
+      name: 'quality',
+      type: 'enum',
+      enumValues: ['auto', 'low', 'medium', 'high'],
+      defaultValue: 'auto',
+      descriptionKey: 'Generation quality preset',
+    },
+    {
+      name: 'n',
+      type: 'integer',
+      defaultValue: 1,
+      range: '1 ~ 10',
+      descriptionKey: 'Number of images to generate',
+    },
+    {
+      name: 'background',
+      type: 'enum',
+      enumValues: ['auto', 'transparent', 'opaque'],
+      defaultValue: 'auto',
+      descriptionKey: 'Background handling for generated images',
+    },
+    {
+      name: 'output_format',
+      type: 'enum',
+      enumValues: ['png', 'jpeg', 'webp'],
+      defaultValue: 'png',
+      descriptionKey: 'Output image format',
+    },
+    {
+      name: 'output_compression',
+      type: 'integer',
+      range: '0 ~ 100',
+      descriptionKey: 'Compression level for WebP or JPEG outputs',
+    },
+    {
+      name: 'moderation',
+      type: 'enum',
+      enumValues: ['auto', 'low'],
+      defaultValue: 'auto',
+      descriptionKey: 'Moderation strictness for image generation',
+    },
+    {
+      name: 'stream',
+      type: 'boolean',
+      defaultValue: false,
+      descriptionKey: 'Stream partial images during generation',
+    },
+    {
+      name: 'partial_images',
+      type: 'integer',
+      range: '1 ~ 3',
+      descriptionKey: 'Number of partial images to stream',
+    },
+    {
+      name: 'user',
+      type: 'string',
+      descriptionKey: 'End-user identifier for abuse monitoring',
+    },
+  ]
+}
+
+const IMAGE_PARAMS: SupportedParameter[] = [
+  {
+    name: 'prompt',
+    type: 'string',
+    required: true,
+    descriptionKey: 'Text description of the desired image',
+  },
+  {
+    name: 'size',
+    type: 'string',
+    descriptionKey: 'Output image size',
+  },
+  {
+    name: 'quality',
+    type: 'string',
+    descriptionKey: 'Generation quality preset',
+  },
+  {
+    name: 'n',
+    type: 'integer',
+    defaultValue: 1,
+    range: '>= 1',
+    descriptionKey: 'Number of images to generate',
+  },
+  {
+    name: 'user',
+    type: 'string',
+    descriptionKey: 'End-user identifier for abuse monitoring',
   },
 ]
 
@@ -793,7 +918,11 @@ export function buildSupportedParameters(
   const cat = apiCategoryOf(model)
   if (cat === 'reasoning') return REASONING_PARAMS
   if (cat === 'embedding') return EMBEDDING_PARAMS
-  if (cat === 'image') return IMAGE_PARAMS
+  if (cat === 'image') {
+    if (isGptImageModelName(model.model_name)) return buildGptImageParams(model)
+    if (/dall-?e/i.test(model.model_name)) return DALL_E_IMAGE_PARAMS
+    return IMAGE_PARAMS
+  }
   if (cat === 'video') return VIDEO_PARAMS
   return COMMON_CHAT_PARAMS
 }

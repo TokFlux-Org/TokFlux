@@ -13,6 +13,8 @@ var (
 		"dall-e-3",
 		"dall-e-2",
 		"gpt-image-1",
+		"prefix:gpt-image-",
+		"chatgpt-image-latest",
 		"prefix:imagen-",
 		"flux-",
 		"flux.1-",

@@ -54,6 +54,8 @@ export type PricingModel = {
   billing_mode?: string
   /** Raw expression describing dynamic / tiered billing */
   billing_expr?: string
+  /** Optional image per-request billing rule matched by backend config */
+  image_billing_rule?: ImageBillingRule | null
   /** Pricing version returned by backend, useful for cache busting */
   pricing_version?: string
   /**
@@ -70,6 +72,30 @@ export type PricingModel = {
   input_modalities?: Modality[]
   output_modalities?: Modality[]
   capabilities?: ModelCapability[]
+}
+
+export type ImageBillingResolutionTier = {
+  name: string
+  max_long_edge?: number
+  max_pixels?: number
+  ratio: number
+}
+
+export type ImageBillingRule = {
+  enabled?: boolean
+  match_type?: string
+  match_pattern?: string
+  source?: string
+  description?: string
+  size_path?: string
+  size_tier_path?: string
+  default_size?: string
+  quality_path?: string
+  default_quality?: string
+  unknown_policy?: string
+  size_ratios?: Record<string, number>
+  quality_ratios?: Record<string, number>
+  resolution_tiers?: ImageBillingResolutionTier[]
 }
 
 /** Input/output modalities supported by a model. */

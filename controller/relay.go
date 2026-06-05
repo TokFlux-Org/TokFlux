@@ -155,6 +155,11 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		newAPIError = types.NewError(err, types.ErrorCodeModelPriceError, types.ErrOptionWithStatusCode(http.StatusBadRequest))
 		return
 	}
+	if err := helper.ApplyImageBilling(c, relayInfo, request); err != nil {
+		newAPIError = types.NewError(err, types.ErrorCodeModelPriceError, types.ErrOptionWithStatusCode(http.StatusBadRequest))
+		return
+	}
+	priceData = relayInfo.PriceData
 
 	// common.SetContextKey(c, constant.ContextKeyTokenCountMeta, meta)
 

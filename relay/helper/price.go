@@ -114,7 +114,7 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 		ratio := modelRatio * groupRatioInfo.GroupRatio
 		preConsumedQuota = int(float64(preConsumedTokens) * ratio)
 	} else {
-		if meta.ImagePriceRatio != 0 {
+		if meta.ImagePriceRatio != 0 && !billing_setting.HasImageBillingRule(info.OriginModelName) {
 			modelPrice = modelPrice * meta.ImagePriceRatio
 		}
 		preConsumedQuota = int(modelPrice * common.QuotaPerUnit * groupRatioInfo.GroupRatio)

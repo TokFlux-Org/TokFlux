@@ -120,6 +120,17 @@ func appendBillingInfo(relayInfo *relaycommon.RelayInfo, other map[string]interf
 	if relayInfo == nil || other == nil {
 		return
 	}
+	if len(relayInfo.PriceData.OtherRatios) > 0 {
+		otherRatios := make(map[string]float64, len(relayInfo.PriceData.OtherRatios))
+		for key, ratio := range relayInfo.PriceData.OtherRatios {
+			if ratio > 0 {
+				otherRatios[key] = ratio
+			}
+		}
+		if len(otherRatios) > 0 {
+			other["other_ratios"] = otherRatios
+		}
+	}
 	// billing_source: "wallet" or "subscription"
 	if relayInfo.BillingSource != "" {
 		other["billing_source"] = relayInfo.BillingSource

@@ -63,6 +63,7 @@ import { safeJsonParse } from '../utils/json-parser'
 import {
   ModelPricingEditorPanel,
   ModelPricingSheet,
+  type ImageBillingRule,
   type ModelRatioData,
 } from './model-pricing-sheet'
 import { formatPricingNumber } from './pricing-format'
@@ -78,6 +79,7 @@ type ModelRatioVisualEditorProps = {
   audioCompletionRatio: string
   billingMode: string
   billingExpr: string
+  imageBillingRules: string
   onChange: (field: string, value: string) => void
 }
 
@@ -94,6 +96,7 @@ type ModelRow = {
   billingMode?: string
   billingExpr?: string
   requestRuleExpr?: string
+  imageBillingRule?: ImageBillingRule
   hasConflict: boolean
 }
 
@@ -142,12 +145,33 @@ const getExpressionSummary = (row: ModelRow, t: (key: string) => string) => {
   return t('Expression pricing')
 }
 
+const getImageBillingSummary = (
+  rule: ImageBillingRule | undefined,
+  t: (key: string) => string
+) => {
+  if (!rule?.enabled) return ''
+  const sizeCount = Object.keys(rule.size_ratios || {}).length
+  const qualityCount = Object.keys(rule.quality_ratios || {}).length
+  const tierCount = rule.resolution_tiers?.length || 0
+  const parts = [
+    sizeCount > 0 || tierCount > 0 ? t('Size tiers') : '',
+    qualityCount > 0 ? t('Quality tiers') : '',
+  ].filter(Boolean)
+  return parts.length > 0
+    ? `${t('Image request multipliers')}: ${parts.join(' · ')}`
+    : t('Image request multipliers')
+}
+
 const getPriceSummary = (row: ModelRow, t: (key: string) => string) => {
   if (row.billingMode === 'tiered_expr') {
     return getExpressionSummary(row, t)
   }
   if (row.billingMode === 'per-request') {
-    return row.price ? `$${row.price} / ${t('request')}` : t('Unset price')
+    const base = row.price
+      ? `$${row.price} / ${t('request')}`
+      : t('Unset price')
+    const imageSummary = getImageBillingSummary(row.imageBillingRule, t)
+    return imageSummary ? `${base} · ${imageSummary}` : base
   }
 
   const inputPrice = ratioToPrice(row.ratio)
@@ -174,7 +198,9 @@ const getPriceDetail = (row: ModelRow, t: (key: string) => string) => {
       : t('Expression based')
   }
   if (row.billingMode === 'per-request') {
-    return t('Fixed request price')
+    return row.imageBillingRule?.enabled
+      ? t('Fixed request price with image parameter multipliers')
+      : t('Fixed request price')
   }
 
   const inputPrice = ratioToPrice(row.ratio)
@@ -204,6 +230,7 @@ export const ModelRatioVisualEditor = memo(
     audioCompletionRatio,
     billingMode,
     billingExpr,
+    imageBillingRules,
     onChange,
   }: ModelRatioVisualEditorProps) {
     const { t } = useTranslation()
@@ -305,6 +332,12 @@ export const ModelRatioVisualEditor = memo(
           context: 'billing expression',
         }
       )
+      const imageBillingRulesMap = safeJsonParse<
+        Record<string, ImageBillingRule>
+      >(imageBillingRules, {
+        fallback: {},
+        context: 'image billing rules',
+      })
 
       const modelNames = new Set([
         ...Object.keys(priceMap),
@@ -317,6 +350,7 @@ export const ModelRatioVisualEditor = memo(
         ...Object.keys(audioCompletionMap),
         ...Object.keys(billingModeMap),
         ...Object.keys(billingExprMap),
+        ...Object.keys(imageBillingRulesMap),
       ])
 
       const modelData: ModelRow[] = Array.from(modelNames).map((name) => {
@@ -330,6 +364,7 @@ export const ModelRatioVisualEditor = memo(
         const audioCompletion = audioCompletionMap[name]?.toString() || ''
 
         const modeForModel = billingModeMap[name]
+        const imageBillingRule = imageBillingRulesMap[name]
         if (modeForModel === 'tiered_expr') {
           // Tiered_expr models may also retain ratio/price values as fallback
           // during multi-instance sync delays. We preserve them in the row so
@@ -350,6 +385,7 @@ export const ModelRatioVisualEditor = memo(
             imageRatio: image,
             audioRatio: audio,
             audioCompletionRatio: audioCompletion,
+            imageBillingRule,
             hasConflict: false,
           }
         }
@@ -364,6 +400,7 @@ export const ModelRatioVisualEditor = memo(
           imageRatio: image,
           audioRatio: audio,
           audioCompletionRatio: audioCompletion,
+          imageBillingRule,
           billingMode: price !== '' ? 'per-request' : 'per-token',
           hasConflict:
             price !== '' &&
@@ -389,6 +426,7 @@ export const ModelRatioVisualEditor = memo(
       audioCompletionRatio,
       billingMode,
       billingExpr,
+      imageBillingRules,
     ])
 
     const modeCounts = useMemo(
@@ -432,6 +470,7 @@ export const ModelRatioVisualEditor = memo(
                 : 'per-token',
           billingExpr: model.billingExpr,
           requestRuleExpr: model.requestRuleExpr,
+          imageBillingRule: model.imageBillingRule,
         })
         setEditorOpen(true)
         if (isMobile) setSheetOpen(true)
@@ -509,6 +548,9 @@ export const ModelRatioVisualEditor = memo(
           billingExpr,
           { fallback: {}, silent: true }
         )
+        const imageBillingRulesMap = safeJsonParse<
+          Record<string, ImageBillingRule>
+        >(imageBillingRules, { fallback: {}, silent: true })
 
         delete priceMap[name]
         delete ratioMap[name]
@@ -520,6 +562,7 @@ export const ModelRatioVisualEditor = memo(
         delete audioCompletionMap[name]
         delete billingModeMap[name]
         delete billingExprMap[name]
+        delete imageBillingRulesMap[name]
 
         onChange('ModelPrice', JSON.stringify(priceMap, null, 2))
         onChange('ModelRatio', JSON.stringify(ratioMap, null, 2))
@@ -540,6 +583,10 @@ export const ModelRatioVisualEditor = memo(
           'billing_setting.billing_expr',
           JSON.stringify(billingExprMap, null, 2)
         )
+        onChange(
+          'billing_setting.image_billing_rules',
+          JSON.stringify(imageBillingRulesMap, null, 2)
+        )
       },
       [
         modelPrice,
@@ -552,6 +599,7 @@ export const ModelRatioVisualEditor = memo(
         audioCompletionRatio,
         billingMode,
         billingExpr,
+        imageBillingRules,
         onChange,
       ]
     )
@@ -744,6 +792,9 @@ export const ModelRatioVisualEditor = memo(
           billingExpr,
           { fallback: {}, silent: true }
         )
+        const imageBillingRulesMap = safeJsonParse<
+          Record<string, ImageBillingRule>
+        >(imageBillingRules, { fallback: {}, silent: true })
 
         const setIfPresent = (
           target: Record<string, number>,
@@ -766,6 +817,7 @@ export const ModelRatioVisualEditor = memo(
           delete audioCompletionMap[name]
           delete billingModeMap[name]
           delete billingExprMap[name]
+          delete imageBillingRulesMap[name]
 
           if (data.billingMode === 'tiered_expr') {
             const combined = combineBillingExpr(
@@ -790,6 +842,9 @@ export const ModelRatioVisualEditor = memo(
             setIfPresent(audioCompletionMap, name, data.audioCompletionRatio)
           } else if (data.price && data.price !== '') {
             setIfPresent(priceMap, name, data.price)
+            if (data.imageBillingRule?.enabled) {
+              imageBillingRulesMap[name] = data.imageBillingRule
+            }
           } else {
             setIfPresent(ratioMap, name, data.ratio)
             setIfPresent(cacheMap, name, data.cacheRatio)
@@ -820,6 +875,10 @@ export const ModelRatioVisualEditor = memo(
           'billing_setting.billing_expr',
           JSON.stringify(billingExprMap, null, 2)
         )
+        onChange(
+          'billing_setting.image_billing_rules',
+          JSON.stringify(imageBillingRulesMap, null, 2)
+        )
       },
       [
         modelPrice,
@@ -832,6 +891,7 @@ export const ModelRatioVisualEditor = memo(
         audioCompletionRatio,
         billingMode,
         billingExpr,
+        imageBillingRules,
         onChange,
       ]
     )
@@ -1042,6 +1102,7 @@ export const ModelRatioVisualEditor = memo(
       prevProps.audioCompletionRatio === nextProps.audioCompletionRatio &&
       prevProps.billingMode === nextProps.billingMode &&
       prevProps.billingExpr === nextProps.billingExpr &&
+      prevProps.imageBillingRules === nextProps.imageBillingRules &&
       prevProps.onChange === nextProps.onChange
     )
   }

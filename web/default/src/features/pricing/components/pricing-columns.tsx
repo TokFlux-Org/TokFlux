@@ -107,9 +107,7 @@ export function usePricingColumns(
       cell: ({ row }) => {
         const model = row.original
         const modelIconKey = model.icon || model.vendor_icon
-        const modelIcon = modelIconKey
-          ? getLobeIcon(modelIconKey, 14)
-          : null
+        const modelIcon = modelIconKey ? getLobeIcon(modelIconKey, 14) : null
 
         return (
           <div className='flex min-w-[200px] items-center gap-2'>
@@ -259,7 +257,10 @@ export function usePricingColumns(
           <div className='min-w-[100px]'>
             <span className='font-mono text-sm tabular-nums'>{price}</span>
             <div className='text-muted-foreground/50 text-[10px]'>
-              / {t('request')}
+              {t('Base Price')} / {t('request')}
+              {model.image_billing_rule?.enabled && (
+                <span> · {t('image parameters')}</span>
+              )}
             </div>
           </div>
         )

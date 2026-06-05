@@ -135,6 +135,81 @@ function formatRatio(ratio: number | undefined): string {
   return ratio.toFixed(4)
 }
 
+const BILLING_RATIO_ORDER = [
+  'n',
+  'image_size',
+  'image_quality',
+  'prompt_extend',
+]
+
+function formatRatioKey(key: string) {
+  return key
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+function getBillingRatioLabel(key: string, t: (key: string) => string) {
+  if (key === 'n') return t('Image count')
+  if (key === 'image_size') return t('Image size multiplier')
+  if (key === 'image_quality') return t('Image quality multiplier')
+  return `${formatRatioKey(key)} ${t('Multiplier')}`
+}
+
+function formatImageCount(count: number) {
+  if (Number.isInteger(count)) return count.toLocaleString()
+  return count.toLocaleString(undefined, { maximumFractionDigits: 6 })
+}
+
+function getBillingRatioRows(
+  otherRatios: Record<string, number> | undefined,
+  t: (key: string) => string
+) {
+  const entries = Object.entries(otherRatios || {})
+    .map(([key, ratio]) => ({ key, ratio: Number(ratio) }))
+    .filter((entry) => Number.isFinite(entry.ratio) && entry.ratio > 0)
+    .sort((a, b) => {
+      const aIndex = BILLING_RATIO_ORDER.indexOf(a.key)
+      const bIndex = BILLING_RATIO_ORDER.indexOf(b.key)
+      if (aIndex !== -1 || bIndex !== -1) {
+        return (
+          (aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex) -
+          (bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex)
+        )
+      }
+      return a.key.localeCompare(b.key)
+    })
+
+  const visibleEntries = entries.filter((entry) => {
+    if (entry.key === 'n') return entry.ratio !== 1
+    if (entry.key === 'image_size' || entry.key === 'image_quality') {
+      return true
+    }
+    return entry.ratio !== 1
+  })
+
+  if (visibleEntries.length === 0) return []
+
+  const rows = visibleEntries.map((entry) => ({
+    label: getBillingRatioLabel(entry.key, t),
+    value:
+      entry.key === 'n'
+        ? formatImageCount(entry.ratio)
+        : `${formatRatio(entry.ratio)}x`,
+  }))
+
+  if (visibleEntries.length > 1) {
+    const totalRatio = entries.reduce((acc, entry) => acc * entry.ratio, 1)
+    rows.push({
+      label: t('Request multiplier'),
+      value: `${formatRatio(totalRatio)}x`,
+    })
+  }
+
+  return rows
+}
+
 function BillingBreakdown(props: {
   log: UsageLog
   other: LogOtherData
@@ -208,6 +283,10 @@ function BillingBreakdown(props: {
       label: isUserGR ? t('User Exclusive Ratio') : t('Group Ratio'),
       value: `${formatRatio(effectiveGR)}x`,
     })
+  }
+
+  if (!isTieredExpr) {
+    rows.push(...getBillingRatioRows(other.other_ratios, t))
   }
 
   if (!isTieredExpr && isClaude && hasAnyCacheTokens(other)) {

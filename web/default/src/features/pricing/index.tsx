@@ -18,6 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { AlertTriangle, RefreshCw } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { PublicLayout } from '@/components/layout'
 import { PageTransition } from '@/components/page-transition'
 import {
@@ -48,6 +50,8 @@ export function Pricing() {
     endpointMap,
     autoGroups,
     isLoading,
+    error,
+    refetch,
     priceRate,
     usdExchangeRate,
   } = usePricingData()
@@ -109,6 +113,26 @@ export function Pricing() {
   }, [clearFilters, clearSearch])
 
   const renderPricingContent = () => {
+    if (error) {
+      return (
+        <div className='flex min-h-[320px] flex-col items-center justify-center rounded-lg border border-dashed px-6 py-12 text-center'>
+          <AlertTriangle className='text-muted-foreground/40 mb-3 size-10' />
+          <h3 className='text-foreground mb-1 text-base font-semibold'>
+            {t('Unable to load model prices')}
+          </h3>
+          <p className='text-muted-foreground mb-5 max-w-sm text-sm'>
+            {t(
+              'Pricing data may require sign-in, or the server is temporarily unavailable.'
+            )}
+          </p>
+          <Button variant='outline' size='sm' onClick={() => refetch()}>
+            <RefreshCw className='size-4' />
+            {t('Retry')}
+          </Button>
+        </div>
+      )
+    }
+
     if (filteredModels.length === 0) {
       return (
         <EmptyState

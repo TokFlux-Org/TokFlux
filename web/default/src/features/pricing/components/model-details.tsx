@@ -64,6 +64,8 @@ import { getAvailableGroups, isTokenBasedModel } from '../lib/model-helpers'
 import { inferModelMetadata } from '../lib/model-metadata'
 import { formatFixedPrice, formatGroupPrice } from '../lib/price'
 import type {
+  ImageBillingRule,
+  ImageBillingResolutionTier,
   Modality,
   ModelCapability,
   PriceType,
@@ -85,6 +87,259 @@ function SectionTitle(props: { children: React.ReactNode }) {
     <h2 className='text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase'>
       {props.children}
     </h2>
+  )
+}
+
+function formatRatio(value: number) {
+  return `${Number(value).toLocaleString(undefined, {
+    maximumFractionDigits: 6,
+  })}x`
+}
+
+function formatTierValue(value?: number) {
+  if (!value || value <= 0) return ''
+  return Number(value).toLocaleString(undefined, {
+    maximumFractionDigits: 0,
+  })
+}
+
+function ResolutionTierMeta(props: { tier: ImageBillingResolutionTier }) {
+  const { t } = useTranslation()
+  const parts = [
+    props.tier.max_long_edge
+      ? `${t('Max long edge')} ${formatTierValue(props.tier.max_long_edge)}`
+      : '',
+    props.tier.max_pixels
+      ? `${t('Max pixels')} ${formatTierValue(props.tier.max_pixels)}`
+      : '',
+  ].filter(Boolean)
+
+  if (parts.length === 0) return null
+
+  return (
+    <span className='text-muted-foreground/60 mt-0.5 block text-[11px]'>
+      {parts.join(' · ')}
+    </span>
+  )
+}
+
+function ImageRulePrice(props: {
+  ratio: number
+  formatPriceForRatio?: (ratio: number) => string
+}) {
+  if (!props.formatPriceForRatio) {
+    return <>{formatRatio(props.ratio)}</>
+  }
+
+  return (
+    <>
+      {formatRatio(props.ratio)}
+      <span className='text-muted-foreground/40 mx-1'>·</span>
+      <span className='text-foreground'>
+        {props.formatPriceForRatio(props.ratio)}
+      </span>
+    </>
+  )
+}
+
+type ImageDimensionEntry = {
+  key: string
+  name: string
+  ratio: number
+  tier?: ImageBillingResolutionTier
+}
+
+function buildImageDimensionEntries(
+  sizeEntries: [string, number][],
+  resolutionTiers: ImageBillingResolutionTier[]
+): ImageDimensionEntry[] {
+  return [
+    ...sizeEntries.map(([name, ratio]) => ({
+      key: `size:${name}`,
+      name,
+      ratio,
+    })),
+    ...resolutionTiers.map((tier, index) => ({
+      key: `resolution:${tier.name}:${index}`,
+      name: tier.name,
+      ratio: tier.ratio,
+      tier,
+    })),
+  ]
+}
+
+function ImageBillingMatrix(props: {
+  dimensions: ImageDimensionEntry[]
+  qualities: [string, number][]
+  formatPriceForRatio?: (ratio: number) => string
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <div className='overflow-x-auto'>
+      <Table className='min-w-max text-xs'>
+        <TableHeader>
+          <TableRow>
+            <TableHead className='text-muted-foreground h-auto min-w-24 py-2 font-normal'>
+              {t('Quality tiers')}
+            </TableHead>
+            {props.dimensions.map((dimension) => (
+              <TableHead
+                key={dimension.key}
+                className='h-auto min-w-28 py-2 text-right align-top'
+              >
+                <span className='block font-mono text-xs font-semibold'>
+                  {dimension.name}
+                </span>
+                {dimension.tier ? (
+                  <ResolutionTierMeta tier={dimension.tier} />
+                ) : null}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {props.qualities.map(([qualityName, qualityRatio]) => (
+            <TableRow key={qualityName}>
+              <TableCell className='py-2 align-top font-mono text-sm'>
+                {qualityName}
+              </TableCell>
+              {props.dimensions.map((dimension) => (
+                <TableCell
+                  key={`${qualityName}:${dimension.key}`}
+                  className='py-2 text-right align-top font-mono text-sm'
+                >
+                  <ImageRulePrice
+                    ratio={qualityRatio * dimension.ratio}
+                    formatPriceForRatio={props.formatPriceForRatio}
+                  />
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+
+function ImageBillingRulesBreakdown(props: {
+  rule?: ImageBillingRule | null
+  formatPriceForRatio?: (ratio: number) => string
+}) {
+  const { t } = useTranslation()
+  const rule = props.rule
+  if (!rule?.enabled) return null
+
+  const sizeEntries = Object.entries(rule.size_ratios || {})
+  const qualityEntries = Object.entries(rule.quality_ratios || {})
+  const resolutionTiers = rule.resolution_tiers || []
+  const dimensionEntries = buildImageDimensionEntries(
+    sizeEntries,
+    resolutionTiers
+  )
+  const showMatrix = qualityEntries.length > 0 && dimensionEntries.length > 0
+
+  return (
+    <div className='bg-muted/20 mt-3 space-y-3 rounded-lg border p-3'>
+      <div className='flex flex-wrap items-center justify-between gap-2'>
+        <span className='text-sm font-medium'>
+          {t('Image request multipliers')}
+        </span>
+        {rule.match_pattern && (
+          <span className='text-muted-foreground font-mono text-xs'>
+            {rule.match_pattern}
+          </span>
+        )}
+      </div>
+
+      <div className='grid gap-3 @2xl/details:grid-cols-2'>
+        {showMatrix && (
+          <div className='@2xl/details:col-span-2'>
+            <ImageBillingMatrix
+              dimensions={dimensionEntries}
+              qualities={qualityEntries}
+              formatPriceForRatio={props.formatPriceForRatio}
+            />
+          </div>
+        )}
+
+        {!showMatrix && sizeEntries.length > 0 && (
+          <div>
+            <div className='text-muted-foreground mb-1 text-xs'>
+              {t('Size tiers')}
+            </div>
+            <div className='space-y-1'>
+              {sizeEntries.map(([name, ratio]) => (
+                <div
+                  key={name}
+                  className='flex items-center justify-between gap-3 text-sm'
+                >
+                  <span className='font-mono'>{name}</span>
+                  <span className='text-muted-foreground font-mono'>
+                    <ImageRulePrice
+                      ratio={ratio}
+                      formatPriceForRatio={props.formatPriceForRatio}
+                    />
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!showMatrix && resolutionTiers.length > 0 && (
+          <div>
+            <div className='text-muted-foreground mb-1 text-xs'>
+              {t('Resolution tiers')}
+            </div>
+            <div className='space-y-1'>
+              {resolutionTiers.map((tier, index) => (
+                <div
+                  key={`${tier.name}-${index}`}
+                  className='flex items-start justify-between gap-3 text-sm'
+                >
+                  <span className='min-w-0 font-mono'>
+                    {tier.name}
+                    <ResolutionTierMeta tier={tier} />
+                  </span>
+                  <span className='text-muted-foreground font-mono'>
+                    <ImageRulePrice
+                      ratio={tier.ratio}
+                      formatPriceForRatio={props.formatPriceForRatio}
+                    />
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!showMatrix && qualityEntries.length > 0 && (
+          <div>
+            <div className='text-muted-foreground mb-1 text-xs'>
+              {t('Quality tiers')}
+            </div>
+            <div className='space-y-1'>
+              {qualityEntries.map(([name, ratio]) => (
+                <div
+                  key={name}
+                  className='flex items-center justify-between gap-3 text-sm'
+                >
+                  <span className='font-mono'>{name}</span>
+                  <span className='text-muted-foreground font-mono'>
+                    <ImageRulePrice
+                      ratio={ratio}
+                      formatPriceForRatio={props.formatPriceForRatio}
+                    />
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -269,9 +524,7 @@ function ModelHeader(props: { model: PricingModel }) {
   const { t } = useTranslation()
   const model = props.model
   const modelIconKey = model.icon || model.vendor_icon
-  const modelIcon = modelIconKey
-    ? getLobeIcon(modelIconKey, 20)
-    : null
+  const modelIcon = modelIconKey ? getLobeIcon(modelIconKey, 20) : null
   const description = model.description || model.vendor_description || null
   const tags = parseTags(model.tags)
   const isSpecialExpression =
@@ -478,6 +731,16 @@ function PriceSection(props: {
   }
 
   if (!isTokenBased) {
+    const formatImageRulePrice = (ratio: number) =>
+      formatFixedPrice(
+        props.model,
+        baseGroupKey,
+        props.showRechargePrice,
+        props.priceRate,
+        props.usdExchangeRate,
+        { [baseGroupKey]: ratio }
+      )
+
     return (
       <section>
         <SectionTitle>{t('Base Price')}</SectionTitle>
@@ -496,6 +759,10 @@ function PriceSection(props: {
             )}
           </span>
         </div>
+        <ImageBillingRulesBreakdown
+          rule={props.model.image_billing_rule}
+          formatPriceForRatio={formatImageRulePrice}
+        />
       </section>
     )
   }
@@ -877,6 +1144,11 @@ function GroupPricingSection(props: {
         {isTokenBased && (
           <p className='text-muted-foreground/40 mt-1.5 px-4 text-[10px] sm:px-0'>
             {t('Prices shown per')} {tokenUnitLabel} tokens
+          </p>
+        )}
+        {!isTokenBased && props.model.image_billing_rule?.enabled && (
+          <p className='text-muted-foreground/40 mt-1.5 px-4 text-[10px] sm:px-0'>
+            {t('Image request multipliers are applied after the group price.')}
           </p>
         )}
       </div>

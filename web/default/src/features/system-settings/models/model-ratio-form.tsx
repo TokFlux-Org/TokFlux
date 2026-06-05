@@ -52,6 +52,7 @@ type ModelFormValues = {
   ExposeRatioEnabled: boolean
   BillingMode: string
   BillingExpr: string
+  ImageBillingRules: string
 }
 
 type ModelRatioFormProps = {
@@ -137,10 +138,12 @@ export const ModelRatioForm = memo(function ModelRatioForm({
               audioCompletionRatio={form.watch('AudioCompletionRatio')}
               billingMode={form.watch('BillingMode')}
               billingExpr={form.watch('BillingExpr')}
+              imageBillingRules={form.watch('ImageBillingRules')}
               onChange={(field, value) => {
                 const fieldMap: Record<string, keyof ModelFormValues> = {
                   'billing_setting.billing_mode': 'BillingMode',
                   'billing_setting.billing_expr': 'BillingExpr',
+                  'billing_setting.image_billing_rules': 'ImageBillingRules',
                 }
                 const formField =
                   fieldMap[field] || (field as keyof ModelFormValues)
@@ -343,6 +346,27 @@ export const ModelRatioForm = memo(function ModelRatioForm({
                     />
                   </FormControl>
                 </SettingsSwitchItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='ImageBillingRules'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    {t('Image request parameter multipliers')}
+                  </FormLabel>
+                  <FormControl>
+                    <Textarea rows={8} {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'Optional JSON map of image models to request-parameter multipliers for size, quality, and resolution.'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
               )}
             />
           </SettingsForm>

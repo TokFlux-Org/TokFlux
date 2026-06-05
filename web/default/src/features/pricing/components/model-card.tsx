@@ -57,13 +57,12 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   const groups = props.model.enable_groups || []
   const endpoints = props.model.supported_endpoint_types || []
   const modelIconKey = props.model.icon || props.model.vendor_icon
-  const modelIcon = modelIconKey
-    ? getLobeIcon(modelIconKey, 28)
-    : null
+  const modelIcon = modelIconKey ? getLobeIcon(modelIconKey, 28) : null
   const initial = props.model.model_name?.charAt(0).toUpperCase() || '?'
   const isDynamicPricing =
     props.model.billing_mode === 'tiered_expr' &&
     Boolean(props.model.billing_expr)
+  const hasImageBillingRule = Boolean(props.model.image_billing_rule?.enabled)
   const hasCachedPrice = isTokenBased && props.model.cache_ratio != null
   const dynamicSummary = isDynamicPricing
     ? getDynamicPricingSummary(props.model, {
@@ -196,6 +195,12 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
                     )}
                   </span>{' '}
                   / {t('request')}
+                  {hasImageBillingRule && (
+                    <span className='text-muted-foreground/60'>
+                      {' '}
+                      · {t('image parameters')}
+                    </span>
+                  )}
                 </span>
               )}
             </div>
@@ -242,6 +247,14 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
             <StatusBadge
               label={t('Dynamic Pricing')}
               variant='warning'
+              copyable={false}
+              size='sm'
+            />
+          )}
+          {hasImageBillingRule && (
+            <StatusBadge
+              label={t('Image multipliers')}
+              variant='info'
               copyable={false}
               size='sm'
             />

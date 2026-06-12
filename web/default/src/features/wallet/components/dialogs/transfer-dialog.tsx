@@ -26,16 +26,9 @@ import {
   quotaUnitsToDollars,
 } from '@/lib/format'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Dialog } from '@/components/dialog'
 
 interface TransferDialogProps {
   open: boolean
@@ -74,9 +67,21 @@ export function TransferDialog({
   useEffect(() => {
     if (open) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setAmount(String(availableQuota >= minTransferQuota ? minTransferAmount : availableAmount))
+      setAmount(
+        String(
+          availableQuota >= minTransferQuota
+            ? minTransferAmount
+            : availableAmount
+        )
+      )
     }
-  }, [availableAmount, availableQuota, minTransferAmount, minTransferQuota, open])
+  }, [
+    availableAmount,
+    availableQuota,
+    minTransferAmount,
+    minTransferQuota,
+    open,
+  ])
 
   const handleConfirm = async () => {
     if (!canTransfer) return
@@ -88,52 +93,18 @@ export function TransferDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className='max-sm:w-[calc(100vw-1.5rem)] sm:max-w-md'>
-        <DialogHeader>
-          <DialogTitle className='text-xl font-semibold'>
-            {t('Transfer Rewards')}
-          </DialogTitle>
-          <DialogDescription>
-            {t('Move affiliate rewards to your main balance')}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className='space-y-4 py-3 sm:space-y-6 sm:py-4'>
-          <div className='space-y-2'>
-            <Label className='text-muted-foreground text-xs font-medium tracking-wider uppercase'>
-              {t('Available Rewards')}
-            </Label>
-            <div className='text-2xl font-semibold'>
-              {formatQuota(availableQuota)}
-            </div>
-          </div>
-
-          <div className='space-y-3'>
-            <Label
-              htmlFor='transfer-amount'
-              className='text-muted-foreground text-xs font-medium tracking-wider uppercase'
-            >
-              {t('Transfer Amount')} ({currencyLabel})
-            </Label>
-            <Input
-              id='transfer-amount'
-              type='number'
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              min={minTransferAmount}
-              max={availableAmount}
-              step={tokensOnly ? 1 : 0.000001}
-              placeholder={placeholder}
-              className='font-mono text-lg'
-            />
-            <p className='text-muted-foreground text-xs'>
-              {t('Minimum:')} {formatQuota(minTransferQuota)}
-            </p>
-          </div>
-        </div>
-
-        <DialogFooter className='grid grid-cols-2 gap-2 sm:flex'>
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t('Transfer Rewards')}
+      description={t('Move affiliate rewards to your main balance')}
+      contentClassName='max-sm:w-[calc(100vw-1.5rem)] sm:max-w-md'
+      titleClassName='text-xl font-semibold'
+      footerClassName='grid grid-cols-2 gap-2 sm:flex'
+      contentHeight='auto'
+      bodyClassName='space-y-4'
+      footer={
+        <>
           <Button
             variant='outline'
             onClick={() => onOpenChange(false)}
@@ -141,12 +112,49 @@ export function TransferDialog({
           >
             {t('Cancel')}
           </Button>
-          <Button onClick={handleConfirm} disabled={transferring || !canTransfer}>
+          <Button
+            onClick={handleConfirm}
+            disabled={transferring || !canTransfer}
+          >
             {transferring && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
             {t('Transfer')}
           </Button>
-        </DialogFooter>
-      </DialogContent>
+        </>
+      }
+    >
+      <div className='space-y-4 py-3 sm:space-y-6 sm:py-4'>
+        <div className='space-y-2'>
+          <Label className='text-muted-foreground text-xs font-medium tracking-wider uppercase'>
+            {t('Available Rewards')}
+          </Label>
+          <div className='text-2xl font-semibold'>
+            {formatQuota(availableQuota)}
+          </div>
+        </div>
+
+        <div className='space-y-3'>
+          <Label
+            htmlFor='transfer-amount'
+            className='text-muted-foreground text-xs font-medium tracking-wider uppercase'
+          >
+            {t('Transfer Amount')} ({currencyLabel})
+          </Label>
+          <Input
+            id='transfer-amount'
+            type='number'
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            min={minTransferAmount}
+            max={availableAmount}
+            step={tokensOnly ? 1 : 0.000001}
+            placeholder={placeholder}
+            className='font-mono text-lg'
+          />
+          <p className='text-muted-foreground text-xs'>
+            {t('Minimum:')} {formatQuota(minTransferQuota)}
+          </p>
+        </div>
+      </div>
     </Dialog>
   )
 }

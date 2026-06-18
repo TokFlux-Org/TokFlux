@@ -46,6 +46,11 @@ export const CHANNEL_OPTIONS = [
     label: 'Xiaomi MiMo',
   },
   {
+    value: 59,
+    color: 'green',
+    label: 'Advanced Custom',
+  },
+  {
     value: 33,
     color: 'indigo',
     label: 'AWS Claude',
@@ -192,7 +197,7 @@ export const CHANNEL_OPTIONS = [
   {
     value: 57,
     color: 'blue',
-    label: 'Codex (OpenAI OAuth)',
+    label: 'ChatGPT Subscription (Codex)',
   },
 ];
 

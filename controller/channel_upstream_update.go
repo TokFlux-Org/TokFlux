@@ -718,6 +718,9 @@ func ApplyChannelUpstreamModelUpdates(c *gin.Context) {
 		refreshChannelRuntimeCache()
 	}
 
+	recordManageAudit(c, "channel.upstream_apply", map[string]interface{}{
+		"id": channel.Id,
+	})
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
@@ -913,6 +916,9 @@ func ApplyAllChannelUpstreamModelUpdates(c *gin.Context) {
 		refreshChannelRuntimeCache()
 	}
 
+	recordManageAudit(c, "channel.upstream_apply_all", map[string]interface{}{
+		"count": len(results),
+	})
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",

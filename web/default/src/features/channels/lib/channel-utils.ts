@@ -51,6 +51,7 @@ export function getChannelTypeIcon(type: number): string {
     6: 'OpenAI', // OpenAIMax
     7: 'OpenAI', // OhMyGPT
     8: 'OpenAI', // Custom
+    59: 'OpenAI', // Advanced Custom
     3: 'Azure', // Azure
     58: 'XiaomiMiMo', // Xiaomi MiMo
 

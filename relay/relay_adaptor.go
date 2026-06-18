@@ -5,6 +5,7 @@ import (
 
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/relay/channel"
+	"github.com/QuantumNous/new-api/relay/channel/advancedcustom"
 	"github.com/QuantumNous/new-api/relay/channel/ali"
 	"github.com/QuantumNous/new-api/relay/channel/aws"
 	"github.com/QuantumNous/new-api/relay/channel/baidu"
@@ -123,6 +124,8 @@ func GetAdaptor(apiType int) channel.Adaptor {
 		return &codex.Adaptor{}
 	case constant.APITypeMiMO:
 		return &mimo.Adaptor{}
+	case constant.APITypeAdvancedCustom:
+		return &advancedcustom.Adaptor{}
 	}
 	return nil
 }

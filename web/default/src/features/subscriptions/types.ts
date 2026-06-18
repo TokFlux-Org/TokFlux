@@ -36,10 +36,12 @@ export const subscriptionPlanSchema = z.object({
   enabled: z.boolean(),
   sort_order: z.number(),
   allow_balance_pay: z.boolean().optional().default(true),
+  allow_wallet_overflow: z.boolean().optional().default(true),
   max_purchase_per_user: z.number(),
   total_amount: z.number(),
   upgrade_group: z.string().optional(),
   supported_groups: z.array(z.string()).optional(),
+  downgrade_group: z.string().optional(),
   stripe_price_id: z.string().optional(),
   creem_product_id: z.string().optional(),
   waffo_pancake_product_id: z.string().optional(),
@@ -66,6 +68,8 @@ export const userSubscriptionSchema = z.object({
   amount_total: z.number(),
   amount_used: z.number(),
   supported_groups: z.array(z.string()).optional(),
+  downgrade_group: z.string().optional(),
+  allow_wallet_overflow: z.boolean().optional(),
   next_reset_time: z.number().optional(),
 })
 

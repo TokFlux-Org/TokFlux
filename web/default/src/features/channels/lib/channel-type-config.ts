@@ -86,7 +86,7 @@ export const CHANNEL_TYPE_CONFIGS: Record<number, ChannelTypeConfig> = {
   58: {
     id: 58,
     name: CHANNEL_TYPES[58],
-    icon: 'openai',
+    icon: 'xiaomimimo',
     defaultBaseUrl: 'https://api.xiaomimimo.com',
     hints: {
       baseUrl: 'Default: https://api.xiaomimimo.com',
@@ -142,6 +142,16 @@ export const CHANNEL_TYPE_CONFIGS: Record<number, ChannelTypeConfig> = {
       key: 'Replicate API Token',
       models: 'Replicate model IDs',
       baseUrl: 'Default: https://api.replicate.com',
+    },
+  },
+  59: {
+    id: 59,
+    name: CHANNEL_TYPES[59],
+    icon: 'openai',
+    hints: {
+      baseUrl: 'Fallback base URL',
+      key: 'Used by route auth templates',
+      models: 'Models exposed by this channel',
     },
   },
 }

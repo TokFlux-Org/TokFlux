@@ -16,10 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState } from 'react'
-import { type Row } from '@tanstack/react-table'
+import type { Row } from '@tanstack/react-table'
 import {
-  MoreHorizontal,
   Pencil,
   Trash2,
   Power,
@@ -31,18 +29,23 @@ import {
   Link2,
   CreditCard,
 } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+
+import { ConfirmDialog } from '@/components/confirm-dialog'
+import { DataTableRowActionMenu } from '@/components/data-table/core/row-action-menu'
 import { Button } from '@/components/ui/button'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
-  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { ConfirmDialog } from '@/components/confirm-dialog'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { manageUser, resetUserPasskey, resetUserTwoFA } from '../api'
 import {
   USER_STATUS,
@@ -51,7 +54,7 @@ import {
   isUserDeleted,
 } from '../constants'
 import { getUserActionMessage } from '../lib'
-import { type User, type ManageUserAction } from '../types'
+import type { User, ManageUserAction } from '../types'
 import { UserBindingDialog } from './dialogs/user-binding-dialog'
 import { useUsers } from './users-provider'
 
@@ -77,11 +80,6 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
     setOpen('delete')
   }
 
-  const handleSubscriptions = () => {
-    setCurrentRow(user)
-    setOpen('subscriptions')
-  }
-
   const handleManage = async (action: Exclude<ManageUserAction, 'delete'>) => {
     try {
       const result = await manageUser(user.id, action)
@@ -93,7 +91,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
           result.message || t('Failed to {{action}} user', { action })
         )
       }
-    } catch (_error) {
+    } catch {
       toast.error(t(ERROR_MESSAGES.UNEXPECTED))
     }
   }
@@ -107,7 +105,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
       } else {
         toast.error(result.message || t('Failed to reset Passkey'))
       }
-    } catch (_error) {
+    } catch {
       toast.error(t(ERROR_MESSAGES.UNEXPECTED))
     } finally {
       setResetPasskeyOpen(false)
@@ -123,7 +121,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
       } else {
         toast.error(result.message || t('Failed to reset 2FA'))
       }
-    } catch (_error) {
+    } catch {
       toast.error(t(ERROR_MESSAGES.UNEXPECTED))
     } finally {
       setResetTwoFAOpen(false)
@@ -139,131 +137,137 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   }
 
   return (
-    <div className='-ml-2'>
-      <DropdownMenu>
-        <DropdownMenuTrigger
+    <div className='-ml-1.5 flex items-center gap-1'>
+      <Tooltip>
+        <TooltipTrigger
           render={
             <Button
               variant='ghost'
-              className='data-popup-open:bg-muted flex h-8 w-8 p-0'
+              size='icon-sm'
+              onClick={handleEdit}
+              aria-label={t('Edit')}
             />
           }
         >
-          <MoreHorizontal className='h-4 w-4' />
-          <span className='sr-only'>{t('Open menu')}</span>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align='end' className='w-[180px]'>
-          <DropdownMenuItem onClick={handleEdit}>
-            {t('Edit')}
+          <Pencil />
+        </TooltipTrigger>
+        <TooltipContent>{t('Edit')}</TooltipContent>
+      </Tooltip>
+
+      <DataTableRowActionMenu
+        ariaLabel={t('Open menu')}
+        contentClassName='w-48'
+      >
+        {isDisabled ? (
+          <DropdownMenuItem onClick={() => handleManage('enable')}>
+            {t('Enable')}
             <DropdownMenuShortcut>
-              <Pencil size={16} />
+              <Power size={16} />
             </DropdownMenuShortcut>
           </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
-
-          {isDisabled ? (
-            <DropdownMenuItem onClick={() => handleManage('enable')}>
-              {t('Enable')}
-              <DropdownMenuShortcut>
-                <Power size={16} />
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem
-              onClick={() => handleManage('disable')}
-              disabled={isRoot}
-            >
-              {t('Disable')}
-              <DropdownMenuShortcut>
-                <PowerOff size={16} />
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
-          )}
-
-          {isAdmin && !isRoot && (
-            <DropdownMenuItem onClick={() => handleManage('demote')}>
-              {t('Demote')}
-              <DropdownMenuShortcut>
-                <ArrowDown size={16} />
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
-          )}
-
-          {!isAdmin && (
-            <DropdownMenuItem onClick={() => handleManage('promote')}>
-              {t('Promote')}
-              <DropdownMenuShortcut>
-                <ArrowUp size={16} />
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
-          )}
-
-          <DropdownMenuItem
-            onClick={() => {
-              setBindingDialogOpen(true)
-            }}
-          >
-            {t('Manage Bindings')}
+        ) : (
+          <DropdownMenuItem onClick={() => handleManage('disable')} disabled={isRoot}>
+            {t('Disable')}
             <DropdownMenuShortcut>
-              <Link2 size={16} />
+              <PowerOff size={16} />
             </DropdownMenuShortcut>
           </DropdownMenuItem>
+        )}
 
-          <DropdownMenuItem onClick={handleSubscriptions}>
-            {t('Manage Subscriptions')}
+        {isAdmin && !isRoot && (
+          <DropdownMenuItem onClick={() => handleManage('demote')}>
+            {t('Demote')}
             <DropdownMenuShortcut>
-              <CreditCard size={16} />
+              <ArrowDown size={16} />
             </DropdownMenuShortcut>
           </DropdownMenuItem>
+        )}
 
-          <DropdownMenuSeparator />
-
-          <DropdownMenuItem
-            onClick={() => {
-              setResetPasskeyOpen(true)
-            }}
-            disabled={isRoot}
-          >
-            {t('Reset Passkey')}
+        {!isAdmin && (
+          <DropdownMenuItem onClick={() => handleManage('promote')}>
+            {t('Promote')}
             <DropdownMenuShortcut>
-              <KeyRound size={16} />
+              <ArrowUp size={16} />
             </DropdownMenuShortcut>
           </DropdownMenuItem>
+        )}
 
-          <DropdownMenuItem
-            onClick={() => {
-              setResetTwoFAOpen(true)
-            }}
-            disabled={isRoot}
-          >
-            {t('Reset 2FA')}
-            <DropdownMenuShortcut>
-              <ShieldAlert size={16} />
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={(event) => {
+            event.preventDefault()
+            setBindingDialogOpen(true)
+          }}
+        >
+          {t('Manage Bindings')}
+          <DropdownMenuShortcut>
+            <Link2 size={16} />
+          </DropdownMenuShortcut>
+        </DropdownMenuItem>
 
-          <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onSelect={(event) => {
+            event.preventDefault()
+            setCurrentRow(user)
+            setOpen('subscriptions')
+          }}
+        >
+          {t('Manage Subscriptions')}
+          <DropdownMenuShortcut>
+            <CreditCard size={16} />
+          </DropdownMenuShortcut>
+        </DropdownMenuItem>
 
-          <DropdownMenuItem
-            onClick={handleDelete}
-            className='text-destructive focus:text-destructive'
-            disabled={isRoot}
-          >
-            {t('Delete')}
-            <DropdownMenuShortcut>
-              <Trash2 size={16} />
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        <DropdownMenuSeparator />
+
+        <DropdownMenuItem
+          onSelect={(event) => {
+            event.preventDefault()
+            setResetPasskeyOpen(true)
+          }}
+          disabled={isRoot}
+        >
+          {t('Reset Passkey')}
+          <DropdownMenuShortcut>
+            <KeyRound size={16} />
+          </DropdownMenuShortcut>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
+          onSelect={(event) => {
+            event.preventDefault()
+            setResetTwoFAOpen(true)
+          }}
+          disabled={isRoot}
+        >
+          {t('Reset 2FA')}
+          <DropdownMenuShortcut>
+            <ShieldAlert size={16} />
+          </DropdownMenuShortcut>
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+
+        <DropdownMenuItem
+          onClick={handleDelete}
+          className='text-destructive focus:text-destructive'
+          disabled={isRoot}
+        >
+          {t('Delete')}
+          <DropdownMenuShortcut>
+            <Trash2 size={16} />
+          </DropdownMenuShortcut>
+        </DropdownMenuItem>
+      </DataTableRowActionMenu>
 
       <ConfirmDialog
         open={resetPasskeyOpen}
         onOpenChange={setResetPasskeyOpen}
         title={t('Reset Passkey')}
-        desc={`Reset Passkey for ${user.username}? The user will need to register a new Passkey before using passwordless login.`}
-        confirmText='Reset Passkey'
+        desc={t(
+          'Reset Passkey for {{username}}? The user will need to register a new Passkey before using passwordless login.',
+          { username: user.username }
+        )}
+        confirmText={t('Reset Passkey')}
         handleConfirm={handleResetPasskey}
       />
 
@@ -271,8 +275,11 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         open={resetTwoFAOpen}
         onOpenChange={setResetTwoFAOpen}
         title={t('Reset Two-Factor Authentication')}
-        desc={`Reset 2FA for ${user.username}? The user must set up 2FA again to continue using it.`}
-        confirmText='Reset 2FA'
+        desc={t(
+          'Reset 2FA for {{username}}? The user must set up 2FA again to continue using it.',
+          { username: user.username }
+        )}
+        confirmText={t('Reset 2FA')}
         handleConfirm={handleResetTwoFA}
       />
 

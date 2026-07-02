@@ -16,13 +16,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import * as React from 'react'
 import { Add01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { copyToClipboard } from '@/lib/copy-to-clipboard'
-import { cn } from '@/lib/utils'
+
 import {
   Combobox,
   ComboboxChip,
@@ -36,6 +35,8 @@ import {
   ComboboxValue,
   useComboboxAnchor,
 } from '@/components/ui/combobox'
+import { copyToClipboard } from '@/lib/copy-to-clipboard'
+import { cn } from '@/lib/utils'
 
 export type Option = {
   label: string
@@ -66,6 +67,11 @@ interface MultiSelectProps {
    * Hidden values remain searchable/removable from the dropdown.
    */
   maxVisibleChips?: number
+  /**
+   * Replaces individual chips with a compact summary while preserving the
+   * normal dropdown/search behaviour.
+   */
+  renderSelectedSummary?: (values: string[]) => React.ReactNode
   /**
    * When true, clicking a chip's label copies its value to the clipboard
    * instead of being inert. The remove (×) button keeps its own behaviour.
@@ -258,6 +264,14 @@ export function MultiSelect(props: MultiSelectProps) {
       >
         <ComboboxValue>
           {(values: string[]) => {
+            if (props.renderSelectedSummary) {
+              return (
+                <span className='bg-muted text-muted-foreground flex h-[calc(--spacing(5.25))] w-fit items-center justify-center rounded-sm px-1.5 font-mono text-xs font-medium whitespace-nowrap'>
+                  {props.renderSelectedSummary(values)}
+                </span>
+              )
+            }
+
             const shouldLimit =
               typeof props.maxVisibleChips === 'number' && !expanded
             const visibleValues = shouldLimit
@@ -327,7 +341,11 @@ export function MultiSelect(props: MultiSelectProps) {
         </ComboboxValue>
         <ComboboxChipsInput
           id={props.id}
-          placeholder={props.selected.length === 0 ? placeholder : undefined}
+          placeholder={
+            props.selected.length === 0 && !props.renderSelectedSummary
+              ? placeholder
+              : undefined
+          }
           onKeyDown={handleKeyDown}
           aria-label={placeholder}
         />

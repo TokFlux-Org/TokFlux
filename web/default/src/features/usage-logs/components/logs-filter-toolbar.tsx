@@ -16,12 +16,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState, type ComponentProps, type ReactNode } from 'react'
-import { type Table } from '@tanstack/react-table'
-import { useMediaQuery } from '@/hooks'
+import type { Table } from '@tanstack/react-table'
 import { ChevronDown, Loader2 } from 'lucide-react'
+import { useState, type ComponentProps, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { cn } from '@/lib/utils'
+
+import { DataTableViewOptions } from '@/components/data-table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -34,7 +34,8 @@ import {
   DrawerTrigger,
 } from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
-import { DataTableViewOptions } from '@/components/data-table'
+import { useMediaQuery } from '@/hooks'
+import { cn } from '@/lib/utils'
 
 interface LogsFilterToolbarProps<TData> {
   table: Table<TData>
@@ -44,6 +45,7 @@ interface LogsFilterToolbarProps<TData> {
   mobileFilters?: ReactNode
   mobileFilterCount?: number
   stats?: ReactNode
+  actionStart?: ReactNode
   hasActiveFilters: boolean
   hasAdvancedActiveFilters?: boolean
   advancedFilterCount?: number
@@ -142,6 +144,7 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
           <div className='mt-2 flex flex-col gap-2'>
             {props.stats}
             <div className='flex items-center justify-end gap-1.5'>
+              {props.actionStart}
               <DrawerTrigger asChild>
                 <Button
                   type='button'
@@ -240,6 +243,7 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
       <div className='mt-2 flex flex-wrap items-center gap-2'>
         {props.stats}
         <div className='ms-auto flex flex-wrap items-center justify-end gap-1.5 sm:gap-2'>
+          {props.actionStart}
           <Button
             type='button'
             variant='outline'

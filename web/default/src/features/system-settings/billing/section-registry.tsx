@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { parseCurrencyDisplayType } from '@/lib/currency'
+
 import { CheckinSettingsSection } from '../general/checkin-settings-section'
 import { GrowthRewardItemsSection } from '../general/growth-reward-items-section'
 import { GrowthSettingsSection } from '../general/growth-settings-section'

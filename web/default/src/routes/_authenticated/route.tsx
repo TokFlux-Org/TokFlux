@@ -22,6 +22,8 @@ import { AuthenticatedLayout } from '@/components/layout'
 import { getSelf } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 
+let sessionVerified = false
+
 export const Route = createFileRoute('/_authenticated')({
   beforeLoad: async ({ location }) => {
     const { auth } = useAuthStore.getState()
@@ -33,19 +35,23 @@ export const Route = createFileRoute('/_authenticated')({
       })
     }
 
-    // LocalStorage can outlive the server-side session, so verify before
-    // rendering authenticated pages that immediately fetch user-only data.
-    const res = await getSelf().catch(() => null)
-    if (res?.success && res.data) {
-      auth.setUser(res.data)
-      return
+    if (!sessionVerified) {
+      const res = await getSelf().catch((err: unknown) =>
+        (err as { response?: { status?: number } })?.response?.status === 401
+          ? { success: false }
+          : null
+      )
+      if (res?.success && res.data) {
+        auth.setUser(res.data)
+        sessionVerified = true
+      } else if (res) {
+        auth.reset()
+        throw redirect({
+          to: '/sign-in',
+          search: { redirect: location.href },
+        })
+      }
     }
-
-    auth.reset()
-    throw redirect({
-      to: '/sign-in',
-      search: { redirect: location.href },
-    })
   },
   component: AuthenticatedLayout,
 })

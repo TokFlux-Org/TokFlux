@@ -293,11 +293,12 @@ func normalizeImageBillingUnknownPolicy(policy string) string {
 }
 
 func applyOtherRatiosToImagePreConsume(info *relaycommon.RelayInfo) {
-	if info.PriceData.QuotaToPreConsume <= 0 || len(info.PriceData.OtherRatios) == 0 {
+	otherRatios := info.PriceData.OtherRatios()
+	if info.PriceData.QuotaToPreConsume <= 0 || len(otherRatios) == 0 {
 		return
 	}
 	quota := float64(info.PriceData.QuotaToPreConsume)
-	for _, ratio := range info.PriceData.OtherRatios {
+	for _, ratio := range otherRatios {
 		if ratio > 0 && ratio != 1 {
 			quota *= ratio
 		}

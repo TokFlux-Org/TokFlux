@@ -74,9 +74,10 @@ func TestApplyImageBillingUsesConfiguredResolutionQualityAndCount(t *testing.T) 
 
 	require.NoError(t, ApplyImageBilling(c, info, request))
 	require.Equal(t, 6000, info.PriceData.QuotaToPreConsume)
-	require.Equal(t, 2.0, info.PriceData.OtherRatios["n"])
-	require.Equal(t, 2.0, info.PriceData.OtherRatios["image_size"])
-	require.Equal(t, 1.5, info.PriceData.OtherRatios["image_quality"])
+	otherRatios := info.PriceData.OtherRatios()
+	require.Equal(t, 2.0, otherRatios["n"])
+	require.Equal(t, 2.0, otherRatios["image_size"])
+	require.Equal(t, 1.5, otherRatios["image_quality"])
 }
 
 func TestApplyImageBillingWithoutConfiguredRuleDoesNotTierSizeOrQuality(t *testing.T) {
@@ -104,9 +105,10 @@ func TestApplyImageBillingWithoutConfiguredRuleDoesNotTierSizeOrQuality(t *testi
 
 	require.NoError(t, ApplyImageBilling(c, info, request))
 	require.Equal(t, 1000, info.PriceData.QuotaToPreConsume)
-	require.Equal(t, 1.0, info.PriceData.OtherRatios["n"])
-	require.NotContains(t, info.PriceData.OtherRatios, "image_size")
-	require.NotContains(t, info.PriceData.OtherRatios, "image_quality")
+	otherRatios := info.PriceData.OtherRatios()
+	require.Equal(t, 1.0, otherRatios["n"])
+	require.NotContains(t, otherRatios, "image_size")
+	require.NotContains(t, otherRatios, "image_quality")
 }
 
 func TestApplyImageBillingUsesConfiguredRuleForGeminiNativeImageModel(t *testing.T) {
@@ -150,5 +152,6 @@ func TestApplyImageBillingUsesConfiguredRuleForGeminiNativeImageModel(t *testing
 
 	require.NoError(t, ApplyImageBilling(c, info, nil))
 	require.Equal(t, 1791, info.PriceData.QuotaToPreConsume)
-	require.InDelta(t, 1.791045, info.PriceData.OtherRatios["image_size"], 0.000001)
+	otherRatios := info.PriceData.OtherRatios()
+	require.InDelta(t, 1.791045, otherRatios["image_size"], 0.000001)
 }

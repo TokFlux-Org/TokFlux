@@ -16,13 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import {
-  type ColumnFiltersState,
-  type OnChangeFn,
-  type PaginationState,
-  type RowSelectionState,
-  type VisibilityState,
-  type SortingState,
+import type {
+  ColumnFiltersState,
+  OnChangeFn,
+  PaginationState,
+  RowSelectionState,
+  VisibilityState,
+  SortingState,
 } from '@tanstack/react-table'
 import { Copy, Plus } from 'lucide-react'
 import {
@@ -52,6 +52,7 @@ import { useMediaQuery } from '@/hooks'
 
 import { safeJsonParse } from '../utils/json-parser'
 import type { ImageBillingRule } from './image-billing-rule-editor'
+import type { PricingMode } from './model-pricing-core'
 import {
   ModelPricingEditorPanel,
   type ModelPricingEditorPanelHandle,
@@ -61,6 +62,7 @@ import {
 import {
   buildModelSnapshots,
   getSnapshotSignature,
+  isBasePricingUnset,
   type ModelRow,
 } from './model-pricing-snapshots'
 import { buildModelRatioColumns } from './model-ratio-table-columns'
@@ -88,6 +90,9 @@ type ModelRatioVisualEditorProps = {
   billingMode: string
   billingExpr: string
   imageBillingRules: string
+  candidateModelNames?: string[]
+  candidateModelsLoading?: boolean
+  filterMode?: 'all' | 'unset'
   onChange: (field: string, value: string) => void
   onSave: () => void | Promise<void>
   isSaving: boolean
@@ -126,6 +131,9 @@ const ModelRatioVisualEditorComponent = forwardRef<
     billingMode,
     billingExpr,
     imageBillingRules,
+    candidateModelNames,
+    candidateModelsLoading,
+    filterMode = 'all',
     onChange,
     onSave,
     isSaving,
@@ -215,18 +223,22 @@ const ModelRatioVisualEditorComponent = forwardRef<
 
     const savedByName = new Map(savedRows.map((row) => [row.name, row]))
     const draftByName = new Map(draftRows.map((row) => [row.name, row]))
-    const modelNames = new Set([...savedByName.keys(), ...draftByName.keys()])
+    const modelNames =
+      filterMode === 'unset'
+        ? new Set(candidateModelNames ?? [])
+        : new Set([...savedByName.keys(), ...draftByName.keys()])
 
-    return Array.from(modelNames)
+    return [...modelNames]
       .map((name) => {
         const saved = savedByName.get(name)
         const draft = draftByName.get(name)
-        const displayed = saved ?? draft
+        const displayed = saved ??
+          draft ?? { name, billingMode: 'per-token', hasConflict: false }
         const savedSignature = getSnapshotSignature(saved)
         const draftSignature = getSnapshotSignature(draft)
 
         return {
-          ...displayed!,
+          ...displayed,
           saved,
           draft,
           isDraftChanged: savedSignature !== draftSignature,
@@ -235,8 +247,11 @@ const ModelRatioVisualEditorComponent = forwardRef<
         }
       })
       .filter((row) => !row.isDraftDeleted)
+      .filter((row) => filterMode !== 'unset' || isBasePricingUnset(row.saved))
       .sort((a, b) => a.name.localeCompare(b.name))
   }, [
+    candidateModelNames,
+    filterMode,
     savedModelPrice,
     savedModelRatio,
     savedCacheRatio,
@@ -285,6 +300,12 @@ const ModelRatioVisualEditorComponent = forwardRef<
   const handleEdit = useCallback(
     (model: ModelRow) => {
       const editableModel = model.draft ?? model.saved ?? model
+      let editBillingMode: PricingMode = 'per-token'
+      if (editableModel.billingMode === 'tiered_expr') {
+        editBillingMode = 'tiered_expr'
+      } else if (editableModel.price && editableModel.price !== '') {
+        editBillingMode = 'per-request'
+      }
       setEditData({
         name: editableModel.name,
         price: editableModel.price,
@@ -295,12 +316,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
         imageRatio: editableModel.imageRatio,
         audioRatio: editableModel.audioRatio,
         audioCompletionRatio: editableModel.audioCompletionRatio,
-        billingMode:
-          editableModel.billingMode === 'tiered_expr'
-            ? 'tiered_expr'
-            : editableModel.price && editableModel.price !== ''
-              ? 'per-request'
-              : 'per-token',
+        billingMode: editBillingMode,
         billingExpr: editableModel.billingExpr,
         requestRuleExpr: editableModel.requestRuleExpr,
       })
@@ -441,14 +457,25 @@ const ModelRatioVisualEditorComponent = forwardRef<
       buildModelRatioColumns({
         onDelete: handleDelete,
         onEdit: handleEdit,
+        deleteDisabled: filterMode === 'unset',
         t,
       }),
-    [handleEdit, handleDelete, t]
+    [handleEdit, handleDelete, filterMode, t]
   )
+
+  const ensurePageInRange = useCallback((pageCount: number) => {
+    setPagination((prev) =>
+      pageCount > 0 && prev.pageIndex >= pageCount
+        ? { ...prev, pageIndex: pageCount - 1 }
+        : prev
+    )
+  }, [])
 
   const { table } = useDataTable({
     data: models,
     columns,
+    getRowId: (row) => row.name,
+    ensurePageInRange,
     sorting,
     columnFilters,
     globalFilter,
@@ -615,10 +642,18 @@ const ModelRatioVisualEditorComponent = forwardRef<
     ]
   )
 
-  const handleBatchCopy = useCallback(() => {
+  const handleBatchCopy = useCallback(async () => {
     if (!editData) {
       toast.error(t('Open a source model first'))
       return
+    }
+
+    let sourceData = editData
+    if (editorOpen && editorPanelRef.current) {
+      const committed = await editorPanelRef.current.commitDraft()
+      if (!committed) return
+      sourceData = committed
+      setEditData(committed)
     }
 
     const targetNames = table
@@ -630,15 +665,19 @@ const ModelRatioVisualEditorComponent = forwardRef<
       return
     }
 
-    persistPricingData(editData, targetNames)
+    // Persist to the source model too, so targets never carry pricing the
+    // source itself would lose if the editor draft were abandoned.
+    persistPricingData(sourceData, [
+      ...new Set([sourceData.name, ...targetNames]),
+    ])
     table.resetRowSelection()
     toast.success(
       t('Applied {{name}} pricing to {{count}} models', {
-        name: editData.name,
+        name: sourceData.name,
         count: targetNames.length,
       })
     )
-  }, [editData, persistPricingData, t, table])
+  }, [editData, editorOpen, persistPricingData, t, table])
 
   useImperativeHandle(
     ref,
@@ -656,6 +695,15 @@ const ModelRatioVisualEditorComponent = forwardRef<
   )
 
   const hasRows = table.getRowModel().rows.length > 0
+
+  let emptyStateText = t('No models configured. Use Add model to get started.')
+  if (table.getState().globalFilter) {
+    emptyStateText = t('No models match your search')
+  } else if (filterMode === 'unset') {
+    emptyStateText = candidateModelsLoading
+      ? t('Loading...')
+      : t('No models with unset prices')
+  }
 
   return (
     <div className='flex flex-col gap-4'>
@@ -688,18 +736,18 @@ const ModelRatioVisualEditorComponent = forwardRef<
               },
             ]}
             preActions={
-              <Button onClick={handleAdd}>
-                <Plus data-icon='inline-start' />
-                {t('Add model')}
-              </Button>
+              filterMode === 'unset' ? undefined : (
+                <Button onClick={handleAdd}>
+                  <Plus data-icon='inline-start' />
+                  {t('Add model')}
+                </Button>
+              )
             }
           />
 
           {!hasRows ? (
             <div className='text-muted-foreground rounded-lg border border-dashed p-8 text-center'>
-              {table.getState().globalFilter
-                ? t('No models match your search')
-                : t('No models configured. Use Add model to get started.')}
+              {emptyStateText}
             </div>
           ) : (
             <DataTableView
@@ -773,10 +821,12 @@ const ModelRatioVisualEditorComponent = forwardRef<
                   'Use the full-width table to scan prices, then select a row to edit it here.'
                 )}
               </p>
-              <Button variant='outline' onClick={handleAdd}>
-                <Plus data-icon='inline-start' />
-                {t('Add model')}
-              </Button>
+              {filterMode !== 'unset' && (
+                <Button variant='outline' onClick={handleAdd}>
+                  <Plus data-icon='inline-start' />
+                  {t('Add model')}
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -810,6 +860,17 @@ export const ModelRatioVisualEditor = memo(
   // Custom equality check - only re-render if JSON props actually changed
   (prevProps, nextProps) => {
     return (
+      prevProps.savedModelPrice === nextProps.savedModelPrice &&
+      prevProps.savedModelRatio === nextProps.savedModelRatio &&
+      prevProps.savedCacheRatio === nextProps.savedCacheRatio &&
+      prevProps.savedCreateCacheRatio === nextProps.savedCreateCacheRatio &&
+      prevProps.savedCompletionRatio === nextProps.savedCompletionRatio &&
+      prevProps.savedImageRatio === nextProps.savedImageRatio &&
+      prevProps.savedAudioRatio === nextProps.savedAudioRatio &&
+      prevProps.savedAudioCompletionRatio ===
+        nextProps.savedAudioCompletionRatio &&
+      prevProps.savedBillingMode === nextProps.savedBillingMode &&
+      prevProps.savedBillingExpr === nextProps.savedBillingExpr &&
       prevProps.modelPrice === nextProps.modelPrice &&
       prevProps.modelRatio === nextProps.modelRatio &&
       prevProps.cacheRatio === nextProps.cacheRatio &&
@@ -822,6 +883,9 @@ export const ModelRatioVisualEditor = memo(
       prevProps.billingExpr === nextProps.billingExpr &&
       prevProps.savedImageBillingRules === nextProps.savedImageBillingRules &&
       prevProps.imageBillingRules === nextProps.imageBillingRules &&
+      prevProps.candidateModelNames === nextProps.candidateModelNames &&
+      prevProps.candidateModelsLoading === nextProps.candidateModelsLoading &&
+      prevProps.filterMode === nextProps.filterMode &&
       prevProps.onChange === nextProps.onChange &&
       prevProps.onSave === nextProps.onSave &&
       prevProps.isSaving === nextProps.isSaving

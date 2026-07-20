@@ -1,8 +1,6 @@
 package model
 
 import (
-	"errors"
-
 	"github.com/QuantumNous/new-api/common"
 
 	"gorm.io/gorm"
@@ -87,52 +85,4 @@ func SearchVendors(keyword string, offset int, limit int) ([]*Vendor, int64, err
 		return nil, 0, err
 	}
 	return vendors, total, nil
-}
-
-func migrateXiaomiMiMoVendorName() error {
-	const oldName = "MiMO"
-	const newName = "Xiaomi MiMo"
-	const icon = "XiaomiMiMo"
-
-	var oldVendor Vendor
-	err := DB.Where("name = ?", oldName).First(&oldVendor).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		var existing Vendor
-		if err := DB.Where("name = ?", newName).First(&existing).Error; err == nil && existing.Icon == "" {
-			return DB.Model(&Vendor{}).Where("id = ?", existing.Id).Updates(map[string]interface{}{
-				"icon":         icon,
-				"updated_time": common.GetTimestamp(),
-			}).Error
-		}
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-
-	var newVendor Vendor
-	err = DB.Where("name = ?", newName).First(&newVendor).Error
-	if err == nil {
-		if err := DB.Model(&Model{}).Where("vendor_id = ?", oldVendor.Id).Update("vendor_id", newVendor.Id).Error; err != nil {
-			return err
-		}
-		if newVendor.Icon == "" {
-			if err := DB.Model(&Vendor{}).Where("id = ?", newVendor.Id).Updates(map[string]interface{}{
-				"icon":         icon,
-				"updated_time": common.GetTimestamp(),
-			}).Error; err != nil {
-				return err
-			}
-		}
-		return DB.Delete(&oldVendor).Error
-	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return err
-	}
-
-	return DB.Model(&Vendor{}).Where("id = ?", oldVendor.Id).Updates(map[string]interface{}{
-		"name":         newName,
-		"icon":         icon,
-		"updated_time": common.GetTimestamp(),
-	}).Error
 }

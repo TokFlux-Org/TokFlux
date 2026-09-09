@@ -16,8 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Ban, Plus, RotateCcw } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Ban, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -34,18 +34,12 @@ import {
 import { StatusBadge } from '@/components/status-badge'
 import { TableId } from '@/components/table-id'
 import { Button } from '@/components/ui/button'
+import { Combobox } from '@/components/ui/combobox'
 import {
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuShortcut,
 } from '@/components/ui/dropdown-menu'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   Sheet,
   SheetContent,
@@ -54,15 +48,15 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
 import { formatQuota } from '@/lib/format'
-import { createIdempotencyKey } from '@/lib/idempotency'
+import { handleServerError } from '@/lib/handle-server-error'
 
 import {
   getAdminPlans,
   getUserSubscriptions,
   createUserSubscription,
   invalidateUserSubscription,
+  deleteUserSubscription,
   resetUserSubscriptionsByPlan,
 } from '../../api'
 import { formatTimestamp } from '../../lib'
@@ -73,11 +67,6 @@ interface Props {
   onOpenChange: (open: boolean) => void
   user: { id: number; username?: string } | null
   onSuccess?: () => void
-}
-
-type IdempotencyRequest = {
-  signature: string
-  key: string
 }
 
 function SubscriptionStatusBadge(props: {
@@ -122,24 +111,16 @@ export function UserSubscriptionsDialog(props: Props) {
   const [plans, setPlans] = useState<PlanRecord[]>([])
   const [subs, setSubs] = useState<UserSubscriptionRecord[]>([])
   const [selectedPlanId, setSelectedPlanId] = useState<string>('')
-  const [grantAction, setGrantAction] = useState<{
-    planId: number
-    planTitle: string
-  } | null>(null)
-  const [grantReason, setGrantReason] = useState('')
   const [resetting, setResetting] = useState(false)
   const [advanceResetTime, setAdvanceResetTime] = useState(true)
-  const [resetReason, setResetReason] = useState('')
   const [resetAction, setResetAction] = useState<{
     planId: number
     planTitle: string
   } | null>(null)
   const [confirmAction, setConfirmAction] = useState<{
+    type: 'invalidate' | 'delete'
     subId: number
   } | null>(null)
-  const [invalidating, setInvalidating] = useState(false)
-  const [invalidateReason, setInvalidateReason] = useState('')
-  const idempotencyRequestRef = useRef<IdempotencyRequest | null>(null)
 
   const planTitleMap = useMemo(() => {
     const map = new Map<number, string>()
@@ -157,10 +138,18 @@ export function UserSubscriptionsDialog(props: Props) {
         getAdminPlans(),
         getUserSubscriptions(props.user.id),
       ])
-      if (plansRes.success) setPlans(plansRes.data || [])
-      if (subsRes.success) setSubs(subsRes.data || [])
-    } catch {
-      toast.error(t('Loading failed'))
+      if (plansRes.success) {
+        setPlans(plansRes.data || [])
+      } else {
+        handleServerError(plansRes)
+      }
+      if (subsRes.success) {
+        setSubs(subsRes.data || [])
+      } else {
+        handleServerError(subsRes)
+      }
+    } catch (error) {
+      handleServerError(error, t('Loading failed'))
     } finally {
       setLoading(false)
     }
@@ -169,114 +158,71 @@ export function UserSubscriptionsDialog(props: Props) {
   useEffect(() => {
     if (props.open && props.user?.id) {
       setSelectedPlanId('')
-      setGrantAction(null)
-      setGrantReason('')
-      setResetReason('')
-      setInvalidateReason('')
-      idempotencyRequestRef.current = null
       loadData()
     }
   }, [props.open, props.user?.id, loadData])
 
   const handleCreate = async () => {
-    const reason = grantReason.trim()
-    if (!props.user?.id || !grantAction || !reason) {
+    if (!props.user?.id || !selectedPlanId) {
       toast.error(t('Please select a subscription plan'))
       return
-    }
-    const signature = JSON.stringify([
-      'grant',
-      props.user.id,
-      grantAction.planId,
-      reason,
-    ])
-    if (idempotencyRequestRef.current?.signature !== signature) {
-      idempotencyRequestRef.current = {
-        signature,
-        key: createIdempotencyKey('subscription-grant'),
-      }
     }
     setCreating(true)
     try {
       const res = await createUserSubscription(props.user.id, {
-        plan_id: grantAction.planId,
-        reason,
-        idempotency_key: idempotencyRequestRef.current.key,
+        plan_id: Number(selectedPlanId),
       })
       if (res.success) {
         toast.success(res.data?.message || t('Added successfully'))
         setSelectedPlanId('')
-        setGrantAction(null)
-        setGrantReason('')
-        idempotencyRequestRef.current = null
         await loadData()
         props.onSuccess?.()
+      } else {
+        handleServerError(res)
       }
-    } catch {
-      toast.error(t('Request failed'))
+    } catch (error) {
+      handleServerError(error, t('Request failed'))
     } finally {
       setCreating(false)
     }
   }
 
   const handleConfirmAction = async () => {
-    const reason = invalidateReason.trim()
-    if (!confirmAction || !reason) return
-    const signature = JSON.stringify([
-      'invalidate',
-      confirmAction.subId,
-      reason,
-    ])
-    if (idempotencyRequestRef.current?.signature !== signature) {
-      idempotencyRequestRef.current = {
-        signature,
-        key: createIdempotencyKey('subscription-invalidate'),
-      }
-    }
-    setInvalidating(true)
+    if (!confirmAction) return
     try {
-      const res = await invalidateUserSubscription(confirmAction.subId, {
-        reason,
-        idempotency_key: idempotencyRequestRef.current.key,
-      })
-      if (res.success) {
-        toast.success(res.data?.message || t('Has been invalidated'))
-        await loadData()
-        props.onSuccess?.()
-        setConfirmAction(null)
-        setInvalidateReason('')
-        idempotencyRequestRef.current = null
+      if (confirmAction.type === 'invalidate') {
+        const res = await invalidateUserSubscription(confirmAction.subId)
+        if (res.success) {
+          toast.success(res.data?.message || t('Has been invalidated'))
+          await loadData()
+          props.onSuccess?.()
+        } else {
+          handleServerError(res)
+        }
+      } else {
+        const res = await deleteUserSubscription(confirmAction.subId)
+        if (res.success) {
+          toast.success(t('Deleted'))
+          await loadData()
+          props.onSuccess?.()
+        } else {
+          handleServerError(res)
+        }
       }
-    } catch {
-      toast.error(t('Operation failed'))
+    } catch (error) {
+      handleServerError(error, t('Operation failed'))
     } finally {
-      setInvalidating(false)
+      setConfirmAction(null)
     }
   }
 
   const handleResetConfirm = async () => {
-    const reason = resetReason.trim()
-    if (!props.user?.id || !resetAction || !reason) return
-    const signature = JSON.stringify([
-      'reset',
-      props.user.id,
-      resetAction.planId,
-      advanceResetTime,
-      reason,
-    ])
-    if (idempotencyRequestRef.current?.signature !== signature) {
-      idempotencyRequestRef.current = {
-        signature,
-        key: createIdempotencyKey('subscription-reset'),
-      }
-    }
+    if (!props.user?.id || !resetAction) return
     setResetting(true)
     try {
       const res = await resetUserSubscriptionsByPlan(props.user.id, {
         plan_id: resetAction.planId,
         advance_reset_time: advanceResetTime,
-        reason,
-        idempotency_key: idempotencyRequestRef.current.key,
       })
       if (res.success) {
         toast.success(
@@ -286,11 +232,11 @@ export function UserSubscriptionsDialog(props: Props) {
         )
         await loadData()
         props.onSuccess?.()
-        setResetReason('')
-        idempotencyRequestRef.current = null
+      } else {
+        handleServerError(res)
       }
-    } catch {
-      toast.error(t('Operation failed'))
+    } catch (error) {
+      handleServerError(error, t('Operation failed'))
     } finally {
       setResetting(false)
       setResetAction(null)
@@ -310,51 +256,22 @@ export function UserSubscriptionsDialog(props: Props) {
 
           <div className={sideDrawerFormClassName()}>
             <div className='flex gap-2'>
-              <Select
-                items={plans.map((p) => ({
+              <Combobox
+                options={plans.map((p) => ({
                   value: String(p.plan.id),
-                  label: (
-                    <>
-                      {p.plan.title}($
-                      {Number(p.plan.price_amount || 0).toFixed(2)})
-                    </>
-                  ),
+                  label: `${p.plan.title} ($${Number(p.plan.price_amount || 0).toFixed(2)})`,
                 }))}
                 value={selectedPlanId}
                 onValueChange={(v) => v !== null && setSelectedPlanId(v)}
-              >
-                <SelectTrigger
-                  className='flex-1'
-                  aria-label={t('Select subscription plan')}
-                >
-                  <SelectValue placeholder={t('Select subscription plan')} />
-                </SelectTrigger>
-                <SelectContent alignItemWithTrigger={false}>
-                  <SelectGroup>
-                    {plans.map((p) => (
-                      <SelectItem key={p.plan.id} value={String(p.plan.id)}>
-                        {p.plan.title} ($
-                        {Number(p.plan.price_amount || 0).toFixed(2)})
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+                className='flex-1'
+                placeholder={t('Select subscription plan')}
+              />
               <Button
-                onClick={() => {
-                  const planId = Number(selectedPlanId)
-                  if (!planId) return
-                  setGrantReason('')
-                  idempotencyRequestRef.current = null
-                  setGrantAction({
-                    planId,
-                    planTitle: planTitleMap.get(planId) || `#${planId}`,
-                  })
-                }}
+                onClick={handleCreate}
                 disabled={creating || !selectedPlanId}
               >
                 <Plus className='mr-1 h-4 w-4' />
-                {t('Grant subscription')}
+                {t('Add subscription')}
               </Button>
             </div>
 
@@ -444,8 +361,6 @@ export function UserSubscriptionsDialog(props: Props) {
                           disabled={!isActive}
                           onClick={() => {
                             setAdvanceResetTime(true)
-                            setResetReason('')
-                            idempotencyRequestRef.current = null
                             setResetAction({
                               planId: sub.plan_id,
                               planTitle:
@@ -461,17 +376,31 @@ export function UserSubscriptionsDialog(props: Props) {
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           disabled={!isActive}
-                          onClick={() => {
-                            setInvalidateReason('')
-                            idempotencyRequestRef.current = null
+                          onClick={() =>
                             setConfirmAction({
+                              type: 'invalidate',
                               subId: sub.id,
                             })
-                          }}
+                          }
                         >
                           {t('Invalidate')}
                           <DropdownMenuShortcut>
                             <Ban size={16} />
+                          </DropdownMenuShortcut>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          variant='destructive'
+                          onClick={() =>
+                            setConfirmAction({
+                              type: 'delete',
+                              subId: sub.id,
+                            })
+                          }
+                        >
+                          {t('Delete')}
+                          <DropdownMenuShortcut>
+                            <Trash2 size={16} />
                           </DropdownMenuShortcut>
                         </DropdownMenuItem>
                       </DataTableRowActionMenu>
@@ -487,112 +416,46 @@ export function UserSubscriptionsDialog(props: Props) {
       {confirmAction && (
         <ConfirmDialog
           open
-          onOpenChange={(open) => {
-            if (open) return
-            setConfirmAction(null)
-            setInvalidateReason('')
-            idempotencyRequestRef.current = null
-          }}
-          title={t('Confirm invalidate')}
-          desc={t(
-            'After invalidating, this subscription will be immediately deactivated. Historical records are not affected. Continue?'
-          )}
-          confirmText={t('Invalidate')}
+          onOpenChange={(v) => !v && setConfirmAction(null)}
+          title={
+            confirmAction.type === 'invalidate'
+              ? t('Confirm invalidate')
+              : t('Confirm delete')
+          }
+          desc={
+            confirmAction.type === 'invalidate'
+              ? t(
+                  'After invalidating, this subscription will be immediately deactivated. Historical records are not affected. Continue?'
+                )
+              : t(
+                  'Deleting will permanently remove this subscription record (including benefit details). Continue?'
+                )
+          }
           handleConfirm={handleConfirmAction}
-          disabled={!invalidateReason.trim()}
-          isLoading={invalidating}
-          destructive
-        >
-          <label className='grid gap-2 text-sm'>
-            <span className='font-medium'>{t('Reason')}</span>
-            <Textarea
-              value={invalidateReason}
-              maxLength={1000}
-              required
-              disabled={invalidating}
-              placeholder={t('Explain why this subscription is invalidated.')}
-              onChange={(event) => {
-                setInvalidateReason(event.target.value)
-                idempotencyRequestRef.current = null
-              }}
-            />
-          </label>
-        </ConfirmDialog>
-      )}
-
-      {grantAction && (
-        <ConfirmDialog
-          open
-          onOpenChange={(open) => {
-            if (open) return
-            setGrantAction(null)
-            setGrantReason('')
-            idempotencyRequestRef.current = null
-          }}
-          title={t('Grant subscription')}
-          desc={t('Grant {{plan}} to this user without payment?', {
-            plan: grantAction.planTitle,
-          })}
-          confirmText={t('Grant subscription')}
-          handleConfirm={handleCreate}
-          disabled={!grantReason.trim()}
-          isLoading={creating}
-        >
-          <label className='grid gap-2 text-sm'>
-            <span className='font-medium'>{t('Reason')}</span>
-            <Textarea
-              value={grantReason}
-              maxLength={1000}
-              required
-              disabled={creating}
-              placeholder={t(
-                'Explain why this subscription is granted without payment.'
-              )}
-              onChange={(event) => setGrantReason(event.target.value)}
-            />
-          </label>
-        </ConfirmDialog>
+          destructive={confirmAction.type === 'delete'}
+        />
       )}
 
       {resetAction && (
         <ConfirmDialog
           open
-          onOpenChange={(open) => {
-            if (open) return
-            setResetAction(null)
-            setResetReason('')
-            idempotencyRequestRef.current = null
-          }}
+          onOpenChange={(v) => !v && setResetAction(null)}
           title={t('Reset subscription quota')}
           desc={t('Reset active {{plan}} subscriptions for this user?', {
             plan: resetAction.planTitle,
           })}
           confirmText={t('Reset quota')}
           handleConfirm={handleResetConfirm}
-          disabled={!resetReason.trim()}
           isLoading={resetting}
         >
-          <div className='grid gap-3'>
-            <label className='flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm'>
-              <span>{t('Advance next reset time')}</span>
-              <Switch
-                checked={advanceResetTime}
-                onCheckedChange={(checked) => setAdvanceResetTime(!!checked)}
-                aria-label={t('Advance next reset time')}
-              />
-            </label>
-            <label className='grid gap-2 text-sm'>
-              <span className='font-medium'>{t('Reason')}</span>
-              <Textarea
-                value={resetReason}
-                maxLength={1000}
-                required
-                disabled={resetting}
-                placeholder={t('Explain why this quota reset is necessary.')}
-                onChange={(event) => setResetReason(event.target.value)}
-              />
-            </label>
-          </div>
+          <label className='flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm'>
+            <span>{t('Advance next reset time')}</span>
+            <Switch
+              checked={advanceResetTime}
+              onCheckedChange={(checked) => setAdvanceResetTime(!!checked)}
+              aria-label={t('Advance next reset time')}
+            />
+          </label>
         </ConfirmDialog>
       )}
     </>

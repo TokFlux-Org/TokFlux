@@ -32,6 +32,7 @@ import {
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Switch } from '@/components/ui/switch'
 import { api } from '@/lib/api'
+import { handleServerError } from '@/lib/handle-server-error'
 import { useAuthStore } from '@/stores/auth-store'
 
 type SidebarModuleConfig = {
@@ -118,6 +119,11 @@ export function SidebarModulesCard() {
           description: t('API usage records'),
         },
         {
+          key: 'audit',
+          title: t('Audit Logs'),
+          description: t('Login, security and access records'),
+        },
+        {
           key: 'midjourney',
           title: t('Drawing Logs'),
           description: t('Drawing task records'),
@@ -150,6 +156,11 @@ export function SidebarModulesCard() {
           key: 'personal',
           title: t('Personal Settings'),
           description: t('Personal info settings'),
+        },
+        {
+          key: 'security',
+          title: t('Security & Access'),
+          description: t('Manage your security settings and account access'),
         },
       ],
     },
@@ -213,10 +224,10 @@ export function SidebarModulesCard() {
         }
         toast.success(t('Saved successfully'))
       } else {
-        toast.error(res.data.message || t('Save failed'))
+        handleServerError(res.data, t('Save failed'))
       }
-    } catch {
-      toast.error(t('Save failed, please retry'))
+    } catch (error) {
+      handleServerError(error, t('Save failed, please retry'))
     } finally {
       setLoading(false)
     }

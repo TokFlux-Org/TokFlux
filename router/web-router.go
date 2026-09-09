@@ -30,6 +30,7 @@ func SetWebRouter(router *gin.Engine, assets ThemeAssets, pluginDispatcher gin.H
 		pluginDispatcher,
 		middleware.RouteTag("web"),
 		gzip.Gzip(gzip.DefaultCompression),
+		middleware.AccessTokenAudit(),
 		middleware.GlobalWebRateLimit(),
 		middleware.Cache(),
 		static.Serve("/", themeFS),

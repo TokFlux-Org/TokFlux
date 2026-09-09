@@ -19,77 +19,28 @@ For commercial licensing, please contact support@quantumnous.com
 import { useQuery } from '@tanstack/react-query'
 
 import type { SystemStatus } from '@/features/auth/types'
-import { getStatus } from '@/lib/api'
-import { useSystemConfigStore } from '@/stores/system-config-store'
+import { readCachedStatus, statusQueryOptions } from '@/lib/status-query'
 
-import { mapStatusDataToConfig } from './use-system-config'
-
-function stripSidebarModulesAdmin(
-  status: SystemStatus | undefined
-): SystemStatus | undefined {
-  if (!status) return status
-
-  const cleaned = { ...status } as Record<string, unknown>
-  delete cleaned.SidebarModulesAdmin
-  return cleaned as SystemStatus
-}
-
-// Get initial cache from localStorage
+/** Seed value from the persisted snapshot, so the first render is not empty. */
 function getInitialStatus(): SystemStatus | undefined {
-  try {
-    if (typeof window !== 'undefined') {
-      const saved = window.localStorage.getItem('status')
-      return stripSidebarModulesAdmin(
-        saved ? (JSON.parse(saved) as SystemStatus) : undefined
-      )
-    }
-  } catch {
-    /* empty */
-  }
-  return undefined
+  return (readCachedStatus() as SystemStatus | null) ?? undefined
 }
 
+/**
+ * Subscribe to the shared `/api/status` query.
+ *
+ * Every caller reads the same cache entry, so mounting this hook in several
+ * components costs one request. See `statusQueryOptions` for cache lifetimes.
+ */
 export function useStatus() {
   const { data, isLoading, error } = useQuery({
-    queryKey: ['status'],
-    queryFn: async () => {
-      const status = await getStatus()
-      try {
-        if (status) {
-          const { setConfig } = useSystemConfigStore.getState()
-          setConfig(mapStatusDataToConfig(status))
-        }
-      } catch (err) {
-        if (import.meta.env.DEV) {
-          // eslint-disable-next-line no-console
-          console.warn(
-            '[useStatus] Failed to sync status to system config',
-            err
-          )
-        }
-      }
-      // Save to localStorage
-      try {
-        if (typeof window !== 'undefined' && status) {
-          window.localStorage.setItem('status', JSON.stringify(status))
-        }
-      } catch {
-        /* empty */
-      }
-      return status as SystemStatus | null
-    },
+    ...statusQueryOptions,
     // Use localStorage data as initial data
     placeholderData: getInitialStatus(),
-    // Always refresh on mount so sidebar config is revalidated against the backend.
-    refetchOnMount: 'always',
-    // Keep the query effectively stale so cached status never blocks a refresh.
-    staleTime: 0,
-    // Cache expires after 30 minutes
-    gcTime: 30 * 60 * 1000,
   })
 
   return {
-    status: data ?? null,
+    status: (data as SystemStatus | null) ?? null,
     loading: isLoading,
     error,
   }

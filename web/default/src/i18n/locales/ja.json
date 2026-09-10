@@ -1289,6 +1289,7 @@
     "Confirm Unbind": "連携解除を確認",
     "Confirm usage reset": "使用量リセットの確認",
     "Confirm withdrawal of all cash": "現金全額の出金を確認",
+    "Confirm your identity before accessing this sensitive action.": "この機密性の高い操作にアクセスする前に、本人確認を行ってください。",
     "Confirm your identity before removing this Passkey from your account.": "このパスキーをアカウントから削除する前に、本人確認を行ってください。",
     "Confirm your identity with Two-factor Authentication before registering a Passkey.": "パスキーを登録する前に、二要素認証で本人確認を行ってください。",
     "Confirmed at {{time}} by user #{{userId}}": "ユーザー #{{userId}} が {{time}} に確認しました",

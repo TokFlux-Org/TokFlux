@@ -1289,6 +1289,7 @@
     "Confirm Unbind": "Xác nhận hủy liên kết",
     "Confirm usage reset": "Xác nhận đặt lại mức dùng",
     "Confirm withdrawal of all cash": "Xác nhận rút toàn bộ tiền mặt",
+    "Confirm your identity before accessing this sensitive action.": "Hãy xác minh danh tính trước khi thực hiện thao tác nhạy cảm này.",
     "Confirm your identity before removing this Passkey from your account.": "Hãy xác minh danh tính trước khi gỡ Passkey khỏi tài khoản.",
     "Confirm your identity with Two-factor Authentication before registering a Passkey.": "Hãy xác minh danh tính bằng Xác thực hai yếu tố trước khi đăng ký Passkey.",
     "Confirmed at {{time}} by user #{{userId}}": "Được xác nhận lúc {{time}} bởi người dùng #{{userId}}",

@@ -1289,6 +1289,7 @@
     "Confirm Unbind": "Подтвердить отвязку",
     "Confirm usage reset": "Подтвердить сброс использования",
     "Confirm withdrawal of all cash": "Подтвердить вывод всей суммы",
+    "Confirm your identity before accessing this sensitive action.": "Подтвердите личность перед выполнением этого чувствительного действия.",
     "Confirm your identity before removing this Passkey from your account.": "Подтвердите свою личность перед удалением этой Passkey из вашей учётной записи.",
     "Confirm your identity with Two-factor Authentication before registering a Passkey.": "Подтвердите свою личность с помощью двухфакторной аутентификации перед регистрацией Passkey.",
     "Confirmed at {{time}} by user #{{userId}}": "Подтверждено {{time}} пользователем #{{userId}}",

@@ -1289,6 +1289,7 @@
     "Confirm Unbind": "Confirm Unbind",
     "Confirm usage reset": "Confirm usage reset",
     "Confirm withdrawal of all cash": "Confirm withdrawal of all cash",
+    "Confirm your identity before accessing this sensitive action.": "Confirm your identity before accessing this sensitive action.",
     "Confirm your identity before removing this Passkey from your account.": "Confirm your identity before removing this Passkey from your account.",
     "Confirm your identity with Two-factor Authentication before registering a Passkey.": "Confirm your identity with Two-factor Authentication before registering a Passkey.",
     "Confirmed at {{time}} by user #{{userId}}": "Confirmed at {{time}} by user #{{userId}}",

@@ -1289,6 +1289,7 @@
     "Confirm Unbind": "Confirmer la dissociation",
     "Confirm usage reset": "Confirmer la réinitialisation de l’utilisation",
     "Confirm withdrawal of all cash": "Confirmer le retrait de tout le solde",
+    "Confirm your identity before accessing this sensitive action.": "Confirmez votre identité avant d’accéder à cette action sensible.",
     "Confirm your identity before removing this Passkey from your account.": "Confirmez votre identité avant de supprimer cette Passkey de votre compte.",
     "Confirm your identity with Two-factor Authentication before registering a Passkey.": "Confirmez votre identité avec l’authentification à deux facteurs avant d’enregistrer une Passkey.",
     "Confirmed at {{time}} by user #{{userId}}": "Confirmé le {{time}} par l’utilisateur #{{userId}}",

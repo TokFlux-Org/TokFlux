@@ -327,6 +327,9 @@ func migrateDB() error {
 	if err := migrateSubscriptionOrderUserSubscriptionUniqueness(DB); err != nil {
 		return err
 	}
+	if err := migrateGrowthRewardTables(); err != nil {
+		return err
+	}
 	// Migrate price_amount column from float/double to decimal for existing tables
 	migrateSubscriptionPlanPriceAmount()
 	// Migrate model_limits column from varchar to text for existing tables
@@ -355,6 +358,26 @@ func migrateDB() error {
 		&Log{},
 		&Midjourney{},
 		&TopUp{},
+		&InvitationRebate{},
+		&InvitationReward{},
+		&PromotionEvent{},
+		&PromotionFundTransaction{},
+		&PromotionFundTransactionLeg{},
+		&PromotionFundBackfillCheckpoint{},
+		&PromotionCommissionLedger{},
+		&PromotionWithdrawal{},
+		&PromotionWithdrawalItem{},
+		&PromotionWithdrawalOperation{},
+		&PromotionWithdrawalPayoutReference{},
+		&PromotionRefundCase{},
+		&PromotionRefundCaseUser{},
+		&PromotionRefundObligation{},
+		&PromotionRefundAction{},
+		&PromotionRefundRecoveryReceipt{},
+		&GrowthRewardItem{},
+		&GrowthReward{},
+		&GrowthRewardBudget{},
+		&GrowthSubmission{},
 		&QuotaData{},
 		&Task{},
 		&TaskPlugin{},
@@ -368,6 +391,9 @@ func migrateDB() error {
 		&SubscriptionOrder{},
 		&UserSubscription{},
 		&SubscriptionPreConsumeRecord{},
+		&BillingAdjustmentJournal{},
+		&SubscriptionAdminOperation{},
+		&SubscriptionAdminOperationItem{},
 		&CustomOAuthProvider{},
 		&UserOAuthBinding{},
 		&PerfMetric{},
@@ -378,6 +404,29 @@ func migrateDB() error {
 		&AuthzRole{},
 	)
 	if err != nil {
+		return err
+	}
+	if err := BackfillNullUserRefundHolds(); err != nil {
+		return err
+	}
+	if err := BackfillTopUpPurposes(); err != nil {
+		return err
+	}
+	if err := MigrateLegacyPromotionRefundAccounting(); err != nil {
+		return err
+	}
+	if err := ReconcilePendingPromotionRefundTopUps(DB); err != nil {
+		return err
+	}
+	if err := FreezeUnverifiedTopUpPromotionCommissions(); err != nil {
+		return err
+	}
+	if err := BackfillPromotionWithdrawalPayoutReferences(DB); err != nil {
+		return err
+	}
+	// Historical fund journals and withdrawal-operation audit rows can be large
+	// and are completed by the leased promotion_fund_reconcile task after boot.
+	if err := EnsureDefaultGrowthRewardItems(); err != nil {
 		return err
 	}
 	if err := InitializeUserAuthVersions(); err != nil {

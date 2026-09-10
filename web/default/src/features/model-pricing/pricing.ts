@@ -39,6 +39,7 @@ export const PRICING_KEYS = [
   'AudioCompletionRatio',
   'billing_setting.billing_mode',
   'billing_setting.billing_expr',
+  'billing_setting.image_billing_rules',
 ] as const
 export type PricingKey = (typeof PRICING_KEYS)[number]
 export type PricingValues = Partial<Record<PricingKey, number | string>>
@@ -106,6 +107,8 @@ export function pricingOptions(
       let value = values[key]
       if (key === 'billing_setting.billing_mode') value ??= values.BillingMode
       if (key === 'billing_setting.billing_expr') value ??= values.BillingExpr
+      if (key === 'billing_setting.image_billing_rules')
+        value ??= values.ImageBillingRules
       return [key, typeof value === 'string' ? value : '{}']
     })
   ) as PricingOptions
@@ -123,6 +126,7 @@ export function pricingRows(options: PricingOptions): ModelPricingSnapshot[] {
     audioCompletionRatio: options.AudioCompletionRatio,
     billingMode: options['billing_setting.billing_mode'],
     billingExpr: options['billing_setting.billing_expr'],
+    imageBillingRules: options['billing_setting.image_billing_rules'],
   })
 }
 

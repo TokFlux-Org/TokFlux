@@ -614,12 +614,22 @@ func TestAPITokenAuditDatabaseMatrix(t *testing.T) {
 				db, _ := newAuditTestDatabase(t, database.name, dsn)
 				model.DB = db
 				common.SetDatabaseTypes(database.typ, database.typ)
+				t.Cleanup(func() {
+					if sqlDB, err := db.DB(); err == nil {
+						_ = sqlDB.Close()
+					}
+				})
 				require.NoError(t, db.AutoMigrate(&model.User{}, &model.UserSession{}, &model.Token{}))
 				// Initialize production column quoting as well as the existing audit table.
 				require.NoError(t, model.InitLogDB())
 				if separateLog {
 					logDB, _ := newAuditTestDatabase(t, database.name, dsn)
 					model.LOG_DB = logDB
+					t.Cleanup(func() {
+						if sqlLogDB, err := logDB.DB(); err == nil {
+							_ = sqlLogDB.Close()
+						}
+					})
 					require.NoError(t, model.MigrateAuditLogs())
 				}
 				versionSQL := "SELECT version()"

@@ -3,6 +3,8 @@ package model
 import (
 	"slices"
 	"strings"
+
+	"github.com/QuantumNous/new-api/constant"
 )
 
 // 简化的供应商映射规则
@@ -32,6 +34,7 @@ var defaultVendorRules = map[string]string{
 	"jina":     "Jina",
 	"mistral":  "Mistral",
 	"grok":     "xAI",
+	"mimo":     "Xiaomi",
 	"llama":    "Meta",
 	"doubao":   "字节跳动",
 	"kling":    "快手",
@@ -59,6 +62,7 @@ var defaultVendorIcons = map[string]string{
 	"Jina":       "Jina",
 	"Mistral":    "Mistral.Color",
 	"xAI":        "XAI",
+	"Xiaomi":     "XiaomiMiMo",
 	"Meta":       "Ollama",
 	"字节跳动":       "Doubao.Color",
 	"快手":         "Kling.Color",
@@ -89,12 +93,17 @@ func initDefaultVendorMapping(metaMap map[string]*Model, vendorMap map[int]*Vend
 
 		// 匹配供应商
 		vendorID := 0
+		if ability.ChannelType == constant.ChannelTypeMiMO {
+			vendorID = getDisplayVendor("Xiaomi", vendorMap)
+		}
 		modelLower := strings.ToLower(modelName)
-		for _, pattern := range patterns {
-			vendorName := defaultVendorRules[pattern]
-			if strings.Contains(modelLower, pattern) {
-				vendorID = getDisplayVendor(vendorName, vendorMap)
-				break
+		if vendorID == 0 {
+			for _, pattern := range patterns {
+				vendorName := defaultVendorRules[pattern]
+				if strings.Contains(modelLower, pattern) {
+					vendorID = getDisplayVendor(vendorName, vendorMap)
+					break
+				}
 			}
 		}
 
@@ -134,6 +143,7 @@ var defaultVendorDisplayIDs = map[string]int{
 	"讯飞":         -1021,
 	"阿里巴巴":       -1022,
 	"零一万物":       -1023,
+	"Xiaomi":     -1024,
 }
 
 func getDisplayVendor(vendorName string, vendorMap map[int]*Vendor) int {

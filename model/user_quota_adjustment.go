@@ -9,6 +9,14 @@ import (
 	"gorm.io/gorm"
 )
 
+func cacheIncrUserQuota(userID int, delta int64) error {
+	if !common.RedisEnabled || common.RDB == nil {
+		return nil
+	}
+	_, err := cacheApplyUserQuotaDelta(userID, delta)
+	return err
+}
+
 var (
 	ErrInvalidUserQuotaAdjustment = errors.New("invalid user quota adjustment")
 	ErrUserQuotaPermission        = errors.New("cannot adjust quota for this user role")

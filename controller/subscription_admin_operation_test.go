@@ -76,11 +76,11 @@ func performSubscriptionAdminControllerRequest(t *testing.T, path string, paramI
 	return response
 }
 
-func countSubscriptionAdminManageLogs(t *testing.T, db *gorm.DB, userID int) int64 {
+func countSubscriptionAdminAudits(t *testing.T, userID int) int64 {
 	t.Helper()
 	var count int64
-	require.NoError(t, db.Model(&model.Log{}).
-		Where("user_id = ? AND type = ?", userID, model.LogTypeManage).
+	require.NoError(t, model.LOG_DB.Model(&model.AuditLog{}).
+		Where("user_id = ? AND category = ?", userID, model.AuditCategoryOperation).
 		Count(&count).Error)
 	return count
 }
@@ -147,8 +147,8 @@ func TestSubscriptionAdminControllersRequireReasonAndIdempotencyKey(t *testing.T
 	require.NoError(t, db.First(subscription, subscription.Id).Error)
 	assert.Equal(t, int64(450), subscription.AmountUsed)
 	assert.Equal(t, int64(3), subscription.QuotaGeneration)
-	assert.Zero(t, countSubscriptionAdminManageLogs(t, db, subscriptionAdminTestActorID))
-	assert.Zero(t, countSubscriptionAdminManageLogs(t, db, user.Id))
+	assert.Zero(t, countSubscriptionAdminAudits(t, subscriptionAdminTestActorID))
+	assert.Zero(t, countSubscriptionAdminAudits(t, user.Id))
 }
 
 func TestAdminSubscriptionGrantReplayDoesNotDuplicateEntitlementOrAuditAndConflictFails(t *testing.T) {
@@ -173,7 +173,7 @@ func TestAdminSubscriptionGrantReplayDoesNotDuplicateEntitlementOrAuditAndConfli
 	assert.Equal(t, int64(1), entitlementCount)
 	assert.Equal(t, int64(1), operationCount)
 	assert.Equal(t, int64(1), itemCount)
-	assert.Equal(t, int64(1), countSubscriptionAdminManageLogs(t, db, subscriptionAdminTestActorID))
+	assert.Equal(t, int64(1), countSubscriptionAdminAudits(t, subscriptionAdminTestActorID))
 
 	conflictPayload := map[string]any{
 		"plan_id": plan.Id, "reason": "different correction", "idempotency_key": "controller-grant-replay",
@@ -183,7 +183,7 @@ func TestAdminSubscriptionGrantReplayDoesNotDuplicateEntitlementOrAuditAndConfli
 	assert.Equal(t, model.ErrSubscriptionAdminOperationConflict.Error(), conflict.Message)
 	require.NoError(t, db.Model(&model.UserSubscription{}).Where("user_id = ? AND plan_id = ?", user.Id, plan.Id).Count(&entitlementCount).Error)
 	assert.Equal(t, int64(1), entitlementCount)
-	assert.Equal(t, int64(1), countSubscriptionAdminManageLogs(t, db, subscriptionAdminTestActorID))
+	assert.Equal(t, int64(1), countSubscriptionAdminAudits(t, subscriptionAdminTestActorID))
 }
 
 func TestAdminSubscriptionInvalidateReplayDoesNotDuplicateEvidenceOrAuditAndConflictFails(t *testing.T) {
@@ -219,7 +219,7 @@ func TestAdminSubscriptionInvalidateReplayDoesNotDuplicateEvidenceOrAuditAndConf
 	require.NoError(t, db.Model(&model.SubscriptionAdminOperationItem{}).Count(&itemCount).Error)
 	assert.Equal(t, int64(1), operationCount)
 	assert.Equal(t, int64(1), itemCount)
-	assert.Equal(t, int64(1), countSubscriptionAdminManageLogs(t, db, subscriptionAdminTestActorID))
+	assert.Equal(t, int64(1), countSubscriptionAdminAudits(t, subscriptionAdminTestActorID))
 
 	conflictPayload := map[string]any{
 		"reason": "different correction", "idempotency_key": "controller-invalidate-replay",
@@ -227,7 +227,7 @@ func TestAdminSubscriptionInvalidateReplayDoesNotDuplicateEvidenceOrAuditAndConf
 	conflict := performSubscriptionAdminControllerRequest(t, path, subscription.Id, conflictPayload, AdminInvalidateUserSubscription)
 	assert.False(t, conflict.Success)
 	assert.Equal(t, model.ErrSubscriptionAdminOperationConflict.Error(), conflict.Message)
-	assert.Equal(t, int64(1), countSubscriptionAdminManageLogs(t, db, subscriptionAdminTestActorID))
+	assert.Equal(t, int64(1), countSubscriptionAdminAudits(t, subscriptionAdminTestActorID))
 
 	inactivePayload := map[string]any{
 		"reason": "duplicate attempt", "idempotency_key": "controller-invalidate-inactive",
@@ -270,8 +270,8 @@ func TestAdminSubscriptionResetReplayDoesNotResetOrAuditTwiceAndConflictFails(t 
 	require.NoError(t, db.Model(&model.SubscriptionAdminOperationItem{}).Count(&itemCount).Error)
 	assert.Equal(t, int64(1), operationCount)
 	assert.Equal(t, int64(1), itemCount)
-	assert.Equal(t, int64(1), countSubscriptionAdminManageLogs(t, db, subscriptionAdminTestActorID))
-	assert.Equal(t, int64(1), countSubscriptionAdminManageLogs(t, db, user.Id))
+	assert.Equal(t, int64(1), countSubscriptionAdminAudits(t, subscriptionAdminTestActorID))
+	assert.Equal(t, int64(1), countSubscriptionAdminAudits(t, user.Id))
 
 	require.NoError(t, db.Model(&model.UserSubscription{}).Where("id = ?", subscription.Id).Update("amount_used", 321).Error)
 	conflictPayload := map[string]any{
@@ -284,6 +284,6 @@ func TestAdminSubscriptionResetReplayDoesNotResetOrAuditTwiceAndConflictFails(t 
 	require.NoError(t, db.First(subscription, subscription.Id).Error)
 	assert.Equal(t, int64(321), subscription.AmountUsed)
 	assert.Equal(t, int64(5), subscription.QuotaGeneration)
-	assert.Equal(t, int64(1), countSubscriptionAdminManageLogs(t, db, subscriptionAdminTestActorID))
-	assert.Equal(t, int64(1), countSubscriptionAdminManageLogs(t, db, user.Id))
+	assert.Equal(t, int64(1), countSubscriptionAdminAudits(t, subscriptionAdminTestActorID))
+	assert.Equal(t, int64(1), countSubscriptionAdminAudits(t, user.Id))
 }

@@ -416,11 +416,25 @@ func runGoAwayAfterFirstRequestServer(ln net.Listener) <-chan h2ServerResult {
 
 			if attempt == 0 {
 				err = framer.WriteGoAway(0, http2.ErrCodeNo, nil)
-				conn.Close()
 				if err != nil {
 					res.err = err
 					return
 				}
+				// A hard close immediately after GOAWAY can surface as a TCP
+				// reset on Windows when unread client frames are still queued.
+				// Half-close the server write side and drain the peer before
+				// closing so the transport observes a graceful GOAWAY and can
+				// open the retry connection deterministically.
+				if tcpConn, ok := conn.(*net.TCPConn); ok {
+					if err := tcpConn.CloseWrite(); err != nil {
+						res.err = err
+						conn.Close()
+						return
+					}
+					_ = tcpConn.SetReadDeadline(time.Now().Add(2 * time.Second))
+					_, _ = io.Copy(io.Discard, tcpConn)
+				}
+				conn.Close()
 				continue
 			}
 

@@ -46,9 +46,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { UserSubscriptionsDialog } from '@/features/subscriptions/components/dialogs/user-subscriptions-dialog'
-import { handleServerError } from '@/lib/handle-server-error'
-
 import { manageUser, resetUserPasskey, resetUserTwoFA } from '../api'
 import {
   USER_STATUS,
@@ -72,7 +69,6 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const [resetPasskeyOpen, setResetPasskeyOpen] = useState(false)
   const [resetTwoFAOpen, setResetTwoFAOpen] = useState(false)
   const [bindingDialogOpen, setBindingDialogOpen] = useState(false)
-  const [subscriptionsDialogOpen, setSubscriptionsDialogOpen] = useState(false)
 
   const handleEdit = () => {
     setCurrentRow(user)
@@ -91,10 +87,12 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         toast.success(t(getUserActionMessage(action)))
         triggerRefresh()
       } else {
-        handleServerError(result, t('Failed to {{action}} user', { action }))
+        toast.error(
+          result.message || t('Failed to {{action}} user', { action })
+        )
       }
-    } catch (error) {
-      handleServerError(error, t(ERROR_MESSAGES.UNEXPECTED))
+    } catch {
+      toast.error(t(ERROR_MESSAGES.UNEXPECTED))
     }
   }
 
@@ -105,10 +103,10 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         toast.success(t('Passkey reset successfully'))
         triggerRefresh()
       } else {
-        handleServerError(result, t('Failed to reset Passkey'))
+        toast.error(result.message || t('Failed to reset Passkey'))
       }
-    } catch (error) {
-      handleServerError(error, t(ERROR_MESSAGES.UNEXPECTED))
+    } catch {
+      toast.error(t(ERROR_MESSAGES.UNEXPECTED))
     } finally {
       setResetPasskeyOpen(false)
     }
@@ -121,10 +119,10 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         toast.success(t('Two-factor authentication reset'))
         triggerRefresh()
       } else {
-        handleServerError(result, t('Failed to reset 2FA'))
+        toast.error(result.message || t('Failed to reset 2FA'))
       }
-    } catch (error) {
-      handleServerError(error, t(ERROR_MESSAGES.UNEXPECTED))
+    } catch {
+      toast.error(t(ERROR_MESSAGES.UNEXPECTED))
     } finally {
       setResetTwoFAOpen(false)
     }
@@ -168,10 +166,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
             </DropdownMenuShortcut>
           </DropdownMenuItem>
         ) : (
-          <DropdownMenuItem
-            onClick={() => handleManage('disable')}
-            disabled={isRoot}
-          >
+          <DropdownMenuItem onClick={() => handleManage('disable')} disabled={isRoot}>
             {t('Disable')}
             <DropdownMenuShortcut>
               <PowerOff size={16} />
@@ -212,7 +207,8 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         <DropdownMenuItem
           onSelect={(event) => {
             event.preventDefault()
-            setSubscriptionsDialogOpen(true)
+            setCurrentRow(user)
+            setOpen('subscriptions')
           }}
         >
           {t('Manage Subscriptions')}
@@ -292,13 +288,6 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         onOpenChange={setBindingDialogOpen}
         userId={user.id}
         onUnbindSuccess={triggerRefresh}
-      />
-
-      <UserSubscriptionsDialog
-        open={subscriptionsDialogOpen}
-        onOpenChange={setSubscriptionsDialogOpen}
-        user={{ id: user.id, username: user.username }}
-        onSuccess={triggerRefresh}
       />
     </div>
   )

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"net"
@@ -658,6 +659,33 @@ func TestAuditDatabaseMatrix(t *testing.T) {
 			for _, upgrade := range []bool{false, true} {
 				t.Run(fmt.Sprintf("upgrade=%v", upgrade), func(t *testing.T) {
 					db, isolatedDSN := newAuditTestDatabase(t, tc.name, dsn)
+					initializedDBs := make([]*gorm.DB, 0, 2)
+					t.Cleanup(func() {
+						connections := make([]*sql.DB, 0, 2)
+						candidates := append([]*gorm.DB{db, model.DB, model.LOG_DB}, initializedDBs...)
+						for _, candidate := range candidates {
+							if candidate == nil {
+								continue
+							}
+							sqlDB, err := candidate.DB()
+							if err != nil {
+								continue
+							}
+							duplicate := false
+							for _, existing := range connections {
+								if existing == sqlDB {
+									duplicate = true
+									break
+								}
+							}
+							if !duplicate {
+								connections = append(connections, sqlDB)
+							}
+						}
+						for _, connection := range connections {
+							_ = connection.Close()
+						}
+					})
 					t.Setenv("LOG_SQL_DSN", "")
 					if tc.name == "sqlite" {
 						common.SQLitePath = isolatedDSN
@@ -683,6 +711,7 @@ func TestAuditDatabaseMatrix(t *testing.T) {
 					for range 2 {
 						require.NoError(t, model.InitDB())
 						require.NoError(t, model.InitLogDB())
+						initializedDBs = append(initializedDBs, model.DB)
 					}
 					if !upgrade {
 						require.NoError(t, db.Create(&model.User{Username: "fresh-owner", Password: "placeholder", AffCode: "fresh-aff"}).Error)

@@ -19,32 +19,63 @@ type ThemeAssets struct {
 	DefaultIndexPage []byte
 	ClassicBuildFS   embed.FS
 	ClassicIndexPage []byte
+	// IndexPage keeps the pre-theme test and embedding API source-compatible.
+	IndexPage []byte
+}
+
+// WebAssets is retained for callers that used the single-theme embedding API.
+// New callers should use ThemeAssets so both frontend themes can be served.
+type WebAssets = ThemeAssets
+
+func embeddedThemeFS(fs embed.FS, targetPath string) static.ServeFileSystem {
+	if _, err := fs.ReadDir(targetPath); err != nil {
+		return nil
+	}
+	return common.EmbedFolder(fs, targetPath)
 }
 
 func SetWebRouter(router *gin.Engine, assets ThemeAssets, pluginDispatcher gin.HandlerFunc) {
-	defaultFS := common.EmbedFolder(assets.DefaultBuildFS, "web/default/dist")
-	classicFS := common.EmbedFolder(assets.ClassicBuildFS, "web/classic/dist")
-	themeFS := common.NewThemeAwareFS(defaultFS, classicFS)
+	defaultFS := embeddedThemeFS(assets.DefaultBuildFS, "web/default/dist")
+	classicFS := embeddedThemeFS(assets.ClassicBuildFS, "web/classic/dist")
+	var themeFS static.ServeFileSystem
+	if defaultFS != nil && classicFS != nil {
+		themeFS = common.NewThemeAwareFS(defaultFS, classicFS)
+	} else if defaultFS != nil {
+		themeFS = defaultFS
+	} else {
+		themeFS = classicFS
+	}
+	defaultIndexPage := assets.DefaultIndexPage
+	if len(defaultIndexPage) == 0 {
+		defaultIndexPage = assets.IndexPage
+	}
+	classicIndexPage := assets.ClassicIndexPage
+	if len(classicIndexPage) == 0 {
+		classicIndexPage = assets.IndexPage
+	}
 
-	router.NoRoute(
+	handlers := []gin.HandlerFunc{
 		pluginDispatcher,
 		middleware.RouteTag("web"),
 		gzip.Gzip(gzip.DefaultCompression),
 		middleware.AccessTokenAudit(),
 		middleware.GlobalWebRateLimit(),
 		middleware.Cache(),
-		static.Serve("/", themeFS),
-		func(c *gin.Context) {
-			if strings.HasPrefix(c.Request.RequestURI, "/v1") || strings.HasPrefix(c.Request.RequestURI, "/api") || strings.HasPrefix(c.Request.RequestURI, "/assets") {
-				controller.RelayNotFound(c)
-				return
-			}
-			c.Header("Cache-Control", "no-cache")
-			if common.GetTheme() == "classic" {
-				c.Data(http.StatusOK, "text/html; charset=utf-8", assets.ClassicIndexPage)
-			} else {
-				c.Data(http.StatusOK, "text/html; charset=utf-8", assets.DefaultIndexPage)
-			}
-		},
-	)
+	}
+	if themeFS != nil {
+		handlers = append(handlers, static.Serve("/", themeFS))
+	}
+	handlers = append(handlers, func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.RequestURI, "/v1") || strings.HasPrefix(c.Request.RequestURI, "/api") || strings.HasPrefix(c.Request.RequestURI, "/assets") {
+			controller.RelayNotFound(c)
+			return
+		}
+		c.Header("Cache-Control", "no-cache")
+		if common.GetTheme() == "classic" {
+			c.Data(http.StatusOK, "text/html; charset=utf-8", classicIndexPage)
+		} else {
+			c.Data(http.StatusOK, "text/html; charset=utf-8", defaultIndexPage)
+		}
+	})
+	router.NoRoute(handlers...)
 }

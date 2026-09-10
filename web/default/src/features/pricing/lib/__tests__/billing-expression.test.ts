@@ -22,7 +22,7 @@ import { assert, afterEach, describe, expect, test, vi } from 'vitest'
 import { getTieredBillingSummary } from '@/features/usage-logs/lib/format'
 import zh from '@/i18n/locales/zh.json'
 
-import contract from '../../../../../../pkg/billingexpr/testdata/frontend_simulation.json'
+import contract from '../../../../../../../pkg/billingexpr/testdata/frontend_simulation.json'
 import {
   combineBillingExpr,
   splitBillingExprAndRequestRules,
@@ -116,7 +116,8 @@ describe('local billing expression evaluation', () => {
       splitBillingExprAndRequestRules(combineBillingExpr(base, rules))
     ).toEqual({ billingExpr: base, requestRuleExpr: rules })
   })
-  test.each(contract)('agrees with the Go engine: $name', (fixture) => {
+  test.each(contract)('agrees with the Go engine: $name', (...args) => {
+    const [fixture] = args as [typeof contract[number]]
     const result = evaluateBillingExpression(fixture.expression, {
       tokens: fixture.tokens as Partial<Record<TokenVariable, number>>,
       request: {

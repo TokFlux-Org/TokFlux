@@ -29,7 +29,7 @@ var logGroupCol string
 
 // jsonScanBytes 归一化 json 列的驱动返回值:不同驱动/协议模式下同一列可能
 // 以 []byte 或 string 返回,静默丢弃 string 会导致字段被清零而不报错。
-func jsonScanBytes(value any) []byte {
+func jsonScanBytes(value interface{}) []byte {
 	switch v := value.(type) {
 	case []byte:
 		return v
@@ -324,10 +324,16 @@ func migrateDB() error {
 	if err := migratePrefillGroupUniqueness(DB); err != nil {
 		return err
 	}
+	if err := migrateSubscriptionOrderUserSubscriptionUniqueness(DB); err != nil {
+		return err
+	}
 	// Migrate price_amount column from float/double to decimal for existing tables
 	migrateSubscriptionPlanPriceAmount()
 	// Migrate model_limits column from varchar to text for existing tables
 	if err := migrateTokenModelLimitsToText(); err != nil {
+		return err
+	}
+	if err := migrateSubscriptionOrderUserSubscriptionLinkSQLite(); err != nil {
 		return err
 	}
 	if err := migrateOptionPrimaryKey(DB); err != nil {
@@ -494,6 +500,17 @@ func clickHouseCreateTableHasTTL(createTableSQL string) bool {
 type sqliteColumnDef struct {
 	Name string
 	DDL  string
+}
+
+// migrateSubscriptionOrderUserSubscriptionLinkSQLite adds the nullable link
+// before AutoMigrate because SQLite cannot inline a unique constraint here.
+func migrateSubscriptionOrderUserSubscriptionLinkSQLite() error {
+	if !common.UsingMainDatabase(common.DatabaseTypeSQLite) ||
+		!DB.Migrator().HasTable(&SubscriptionOrder{}) ||
+		DB.Migrator().HasColumn(&SubscriptionOrder{}, "user_subscription_id") {
+		return nil
+	}
+	return DB.Exec("ALTER TABLE `subscription_orders` ADD COLUMN `user_subscription_id` integer").Error
 }
 
 func ensureSubscriptionPlanTableSQLite() error {

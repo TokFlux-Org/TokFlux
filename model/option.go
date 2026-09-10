@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"maps"
 	"strconv"
 	"strings"
@@ -127,6 +128,7 @@ func InitOptionMap() {
 	common.OptionMap["WaffoPancakeProductID"] = setting.WaffoPancakeProductID
 	common.OptionMap["TopupGroupRatio"] = common.TopupGroupRatio2JSONString()
 	common.OptionMap["Chats"] = setting.Chats2JsonString()
+	common.OptionMap["CreationLink"] = setting.CreationLink
 	common.OptionMap["AutoGroups"] = setting.AutoGroups2JsonString()
 	common.OptionMap["DefaultUseAutoGroup"] = strconv.FormatBool(setting.DefaultUseAutoGroup)
 	common.OptionMap["MaxTokenAutoGroups"] = strconv.Itoa(setting.GetMaxTokenAutoGroups())
@@ -143,6 +145,7 @@ func InitOptionMap() {
 	common.OptionMap["QuotaForNewUser"] = strconv.Itoa(common.QuotaForNewUser)
 	common.OptionMap["QuotaForInviter"] = strconv.Itoa(common.QuotaForInviter)
 	common.OptionMap["QuotaForInvitee"] = strconv.Itoa(common.QuotaForInvitee)
+	common.OptionMap["InviteRebatePercentage"] = strconv.FormatFloat(common.InviteRebatePercentage, 'f', -1, 64)
 	common.OptionMap["QuotaRemindThreshold"] = strconv.Itoa(common.QuotaRemindThreshold)
 	common.OptionMap["PreConsumedQuota"] = strconv.Itoa(common.PreConsumedQuota)
 	common.OptionMap["ModelRequestRateLimitCount"] = strconv.Itoa(setting.ModelRequestRateLimitCount)
@@ -196,12 +199,18 @@ func InitOptionMap() {
 
 func loadOptionsFromDatabase() {
 	options, _ := AllOption()
+	dbOptions := make(map[string]string, len(options))
 	for _, option := range options {
+		dbOptions[option.Key] = option.Value
+		if isLegacyOptionKey(option.Key) {
+			continue
+		}
 		err := updateOptionMap(option.Key, option.Value)
 		if err != nil {
 			common.SysLog("failed to update option map: " + err.Error())
 		}
 	}
+	migrateLegacyOptions(dbOptions)
 }
 
 func SyncOptions(frequency int) {
@@ -226,6 +235,7 @@ func validateOptionValue(key string, value string) error {
 }
 
 func UpdateOption(key string, value string) error {
+	key = normalizeLegacyOptionKey(key)
 	if IsModelPricingOption(key) {
 		return UpdateModelPricingOptions(map[string]string{key: value})
 	}
@@ -256,13 +266,26 @@ func UpdateOptionsBulk(values map[string]string) error {
 	if len(values) == 0 {
 		return nil
 	}
+	normalizedValues := make(map[string]string, len(values))
+	normalizedSources := make(map[string]string, len(values))
 	for key, value := range values {
-		if err := validateOptionValue(key, value); err != nil {
+		normalizedKey := normalizeLegacyOptionKey(key)
+		if existingValue, exists := normalizedValues[normalizedKey]; exists && existingValue != value {
+			return fmt.Errorf(
+				"conflicting values for option %q from %q and %q",
+				normalizedKey,
+				normalizedSources[normalizedKey],
+				key,
+			)
+		}
+		if err := validateOptionValue(normalizedKey, value); err != nil {
 			return err
 		}
+		normalizedValues[normalizedKey] = value
+		normalizedSources[normalizedKey] = key
 	}
 	err := DB.Transaction(func(tx *gorm.DB) error {
-		for k, v := range values {
+		for k, v := range normalizedValues {
 			option := Option{Key: k}
 			if err := tx.FirstOrCreate(&option, Option{Key: k}).Error; err != nil {
 				return err
@@ -277,7 +300,7 @@ func UpdateOptionsBulk(values map[string]string) error {
 	if err != nil {
 		return err
 	}
-	for k, v := range values {
+	for k, v := range normalizedValues {
 		if err := updateOptionMap(k, v); err != nil {
 			return err
 		}
@@ -286,12 +309,6 @@ func UpdateOptionsBulk(values map[string]string) error {
 }
 
 func updateOptionMap(key string, value string) (err error) {
-	if key == retiredThemeOptionKey {
-		common.OptionMapRWMutex.Lock()
-		delete(common.OptionMap, key)
-		common.OptionMapRWMutex.Unlock()
-		return nil
-	}
 	common.OptionMapRWMutex.Lock()
 	defer common.OptionMapRWMutex.Unlock()
 	common.OptionMap[key] = value
@@ -436,6 +453,8 @@ func updateOptionMap(key string, value string) (err error) {
 		operation_setting.PayAddress = value
 	case "Chats":
 		err = setting.UpdateChatsByJsonString(value)
+	case "CreationLink":
+		setting.CreationLink = value
 	case "AutoGroups":
 		err = setting.UpdateAutoGroupsByJsonString(value)
 	case "MaxTokenAutoGroups":
@@ -554,6 +573,8 @@ func updateOptionMap(key string, value string) (err error) {
 		common.QuotaForInviter, _ = strconv.Atoi(value)
 	case "QuotaForInvitee":
 		common.QuotaForInvitee, _ = strconv.Atoi(value)
+	case "InviteRebatePercentage":
+		common.InviteRebatePercentage, _ = strconv.ParseFloat(value, 64)
 	case "QuotaRemindThreshold":
 		common.QuotaRemindThreshold, _ = strconv.Atoi(value)
 	case "PreConsumedQuota":
@@ -624,6 +645,40 @@ func updateOptionMap(key string, value string) (err error) {
 	return err
 }
 
+func normalizeLegacyOptionKey(key string) string {
+	switch key {
+	case "InviteRebatePercentage":
+		return "growth_setting.invite_rebate_percentage"
+	case "checkin_setting.enabled":
+		return "growth_setting.daily_checkin_enabled"
+	case "checkin_setting.min_quota":
+		return "growth_setting.daily_checkin_min_reward_quota"
+	case "checkin_setting.max_quota":
+		return "growth_setting.daily_checkin_max_reward_quota"
+	default:
+		return key
+	}
+}
+
+func isLegacyOptionKey(key string) bool {
+	return normalizeLegacyOptionKey(key) != key
+}
+
+func migrateLegacyOptions(dbOptions map[string]string) {
+	for legacyKey, legacyValue := range dbOptions {
+		newKey := normalizeLegacyOptionKey(legacyKey)
+		if newKey == legacyKey {
+			continue
+		}
+		if _, exists := dbOptions[newKey]; exists {
+			continue
+		}
+		if err := UpdateOption(newKey, legacyValue); err != nil {
+			common.SysLog("failed to migrate legacy option: " + err.Error())
+		}
+	}
+}
+
 // handleConfigUpdate 处理分层配置更新，返回是否已处理
 func handleConfigUpdate(key, value string) bool {
 	if key == operation_setting.ToolPriceOptionKey {
@@ -657,6 +712,11 @@ func handleConfigUpdate(key, value string) bool {
 	} else if configName == "billing_setting" {
 		InvalidatePricingCache()
 		ratio_setting.InvalidateExposedDataCache()
+	} else if configName == "theme" {
+		system_setting.UpdateAndSyncTheme()
+	} else if configName == "growth_setting" && configKey == "invite_rebate_percentage" {
+		common.InviteRebatePercentage = operation_setting.GetInviteRebatePercentage()
+		common.OptionMap["InviteRebatePercentage"] = value
 	}
 
 	return true // 已处理

@@ -138,6 +138,20 @@ type AdminUpsertSubscriptionPlanRequest struct {
 	Plan model.SubscriptionPlan `json:"plan"`
 }
 
+func normalizeAndValidateSubscriptionPlanGroups(plan *model.SubscriptionPlan) bool {
+	if plan == nil {
+		return true
+	}
+	plan.NormalizeSupportedGroups()
+	groupRatio := ratio_setting.GetGroupRatioCopy()
+	for _, group := range plan.SupportedGroups {
+		if _, ok := groupRatio[group]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
 func AdminCreateSubscriptionPlan(c *gin.Context) {
 	if !requirePaymentCompliance(c) {
 		return
@@ -191,6 +205,10 @@ func AdminCreateSubscriptionPlan(c *gin.Context) {
 			common.ApiErrorMsg(c, "升级分组不存在")
 			return
 		}
+	}
+	if !normalizeAndValidateSubscriptionPlanGroups(&req.Plan) {
+		common.ApiErrorMsg(c, "支持分组不存在")
+		return
 	}
 	req.Plan.DowngradeGroup = strings.TrimSpace(req.Plan.DowngradeGroup)
 	if req.Plan.DowngradeGroup != "" {
@@ -266,6 +284,10 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 			return
 		}
 	}
+	if !normalizeAndValidateSubscriptionPlanGroups(&req.Plan) {
+		common.ApiErrorMsg(c, "支持分组不存在")
+		return
+	}
 	req.Plan.DowngradeGroup = strings.TrimSpace(req.Plan.DowngradeGroup)
 	if req.Plan.DowngradeGroup != "" {
 		if _, ok := ratio_setting.GetGroupRatioCopy()[req.Plan.DowngradeGroup]; !ok {
@@ -281,7 +303,7 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 
 	err := model.DB.Transaction(func(tx *gorm.DB) error {
 		// update plan (allow zero values updates with map)
-		updateMap := map[string]any{
+		updateMap := map[string]interface{}{
 			"title":                      req.Plan.Title,
 			"subtitle":                   req.Plan.Subtitle,
 			"price_amount":               req.Plan.PriceAmount,
@@ -297,6 +319,7 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 			"max_purchase_per_user":      req.Plan.MaxPurchasePerUser,
 			"total_amount":               req.Plan.TotalAmount,
 			"upgrade_group":              req.Plan.UpgradeGroup,
+			"supported_groups":           req.Plan.SupportedGroups,
 			"downgrade_group":            req.Plan.DowngradeGroup,
 			"quota_reset_period":         req.Plan.QuotaResetPeriod,
 			"quota_reset_custom_seconds": req.Plan.QuotaResetCustomSeconds,
@@ -349,8 +372,10 @@ func AdminUpdateSubscriptionPlanStatus(c *gin.Context) {
 }
 
 type AdminBindSubscriptionRequest struct {
-	UserId int `json:"user_id"`
-	PlanId int `json:"plan_id"`
+	UserId         int    `json:"user_id"`
+	PlanId         int    `json:"plan_id"`
+	Reason         string `json:"reason"`
+	IdempotencyKey string `json:"idempotency_key"`
 }
 
 func AdminBindSubscription(c *gin.Context) {
@@ -359,20 +384,29 @@ func AdminBindSubscription(c *gin.Context) {
 	}
 
 	var req AdminBindSubscriptionRequest
-	if err := c.ShouldBindJSON(&req); err != nil || req.UserId <= 0 || req.PlanId <= 0 {
+	if err := c.ShouldBindJSON(&req); err != nil || req.UserId <= 0 || req.PlanId <= 0 ||
+		strings.TrimSpace(req.Reason) == "" || strings.TrimSpace(req.IdempotencyKey) == "" {
 		common.ApiErrorMsg(c, "参数错误")
 		return
 	}
-	msg, err := model.AdminBindSubscription(req.UserId, req.PlanId, "")
+	msg, replayed, err := model.GrantUserSubscriptionByAdmin(model.AdminSubscriptionOperationInput{
+		UserId: req.UserId, PlanId: req.PlanId, ActorId: c.GetInt("id"), ActorRole: c.GetInt("role"),
+		ActorRef: c.GetString("username"), Reason: req.Reason, IdempotencyKey: req.IdempotencyKey,
+	})
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	if msg != "" {
-		common.ApiSuccess(c, gin.H{"message": msg})
-		return
+	if !replayed {
+		recordManageAuditFor(c, req.UserId, "subscription.entitlement_grant", map[string]interface{}{
+			"target_user_id": req.UserId,
+			"plan_id":        req.PlanId,
+			"reason":         strings.TrimSpace(req.Reason),
+		})
+	} else {
+		markAuditLogged(c)
 	}
-	common.ApiSuccess(c, nil)
+	common.ApiSuccess(c, gin.H{"message": msg, "replayed": replayed})
 }
 
 // ---- Admin: user subscription management ----
@@ -392,12 +426,21 @@ func AdminListUserSubscriptions(c *gin.Context) {
 }
 
 type AdminCreateUserSubscriptionRequest struct {
-	PlanId int `json:"plan_id"`
+	PlanId         int    `json:"plan_id"`
+	Reason         string `json:"reason"`
+	IdempotencyKey string `json:"idempotency_key"`
 }
 
 type AdminResetSubscriptionRequest struct {
-	PlanId           int   `json:"plan_id"`
-	AdvanceResetTime *bool `json:"advance_reset_time"`
+	PlanId           int    `json:"plan_id"`
+	AdvanceResetTime *bool  `json:"advance_reset_time"`
+	Reason           string `json:"reason"`
+	IdempotencyKey   string `json:"idempotency_key"`
+}
+
+type AdminInvalidateSubscriptionRequest struct {
+	Reason         string `json:"reason"`
+	IdempotencyKey string `json:"idempotency_key"`
 }
 
 func resolveAdvanceResetTime(value *bool) bool {
@@ -429,20 +472,29 @@ func AdminCreateUserSubscription(c *gin.Context) {
 		return
 	}
 	var req AdminCreateUserSubscriptionRequest
-	if err := c.ShouldBindJSON(&req); err != nil || req.PlanId <= 0 {
+	if err := c.ShouldBindJSON(&req); err != nil || req.PlanId <= 0 ||
+		strings.TrimSpace(req.Reason) == "" || strings.TrimSpace(req.IdempotencyKey) == "" {
 		common.ApiErrorMsg(c, "参数错误")
 		return
 	}
-	msg, err := model.AdminBindSubscription(userId, req.PlanId, "")
+	msg, replayed, err := model.GrantUserSubscriptionByAdmin(model.AdminSubscriptionOperationInput{
+		UserId: userId, PlanId: req.PlanId, ActorId: c.GetInt("id"), ActorRole: c.GetInt("role"),
+		ActorRef: c.GetString("username"), Reason: req.Reason, IdempotencyKey: req.IdempotencyKey,
+	})
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	if msg != "" {
-		common.ApiSuccess(c, gin.H{"message": msg})
-		return
+	if !replayed {
+		recordManageAuditFor(c, userId, "subscription.entitlement_grant", map[string]interface{}{
+			"target_user_id": userId,
+			"plan_id":        req.PlanId,
+			"reason":         strings.TrimSpace(req.Reason),
+		})
+	} else {
+		markAuditLogged(c)
 	}
-	common.ApiSuccess(c, nil)
+	common.ApiSuccess(c, gin.H{"message": msg, "replayed": replayed})
 }
 
 func AdminResetUserSubscriptionsByPlan(c *gin.Context) {
@@ -456,25 +508,35 @@ func AdminResetUserSubscriptionsByPlan(c *gin.Context) {
 		common.ApiErrorMsg(c, "参数错误")
 		return
 	}
-	if req.PlanId <= 0 {
+	if req.PlanId <= 0 || strings.TrimSpace(req.Reason) == "" || strings.TrimSpace(req.IdempotencyKey) == "" {
 		common.ApiErrorMsg(c, "参数错误")
 		return
 	}
 	advanceResetTime := resolveAdvanceResetTime(req.AdvanceResetTime)
-	result, err := model.AdminResetUserSubscriptionsByPlan(userId, req.PlanId, advanceResetTime)
+	result, replayed, err := model.ResetUserSubscriptionsByPlanByAdmin(model.AdminSubscriptionOperationInput{
+		UserId: userId, PlanId: req.PlanId, AdvanceResetTime: advanceResetTime,
+		ActorId: c.GetInt("id"), ActorRole: c.GetInt("role"), ActorRef: c.GetString("username"),
+		Reason: req.Reason, IdempotencyKey: req.IdempotencyKey,
+	})
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	recordSubscriptionResetUserLogs(c, result, auditOperatorInfo(c))
-	recordManageAuditFor(c, userId, "subscription.user_plan_reset", map[string]any{
-		"target_user_id":     userId,
-		"plan_id":            result.PlanId,
-		"plan_title":         result.PlanTitle,
-		"reset_count":        result.ResetCount,
-		"user_count":         result.UserCount,
-		"advance_reset_time": result.AdvanceResetTime,
-	})
+	result.Replayed = replayed
+	if !replayed {
+		recordSubscriptionResetUserLogs(c, result, auditOperatorInfo(c))
+		recordManageAuditFor(c, userId, "subscription.user_plan_reset", map[string]interface{}{
+			"target_user_id":     userId,
+			"plan_id":            result.PlanId,
+			"plan_title":         result.PlanTitle,
+			"reset_count":        result.ResetCount,
+			"user_count":         result.UserCount,
+			"advance_reset_time": result.AdvanceResetTime,
+			"reason":             strings.TrimSpace(req.Reason),
+		})
+	} else {
+		markAuditLogged(c)
+	}
 	common.ApiSuccess(c, result)
 }
 
@@ -485,26 +547,37 @@ func AdminResetPlanSubscriptions(c *gin.Context) {
 		return
 	}
 	var req AdminResetSubscriptionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Reason) == "" ||
+		strings.TrimSpace(req.IdempotencyKey) == "" {
 		common.ApiErrorMsg(c, "参数错误")
 		return
 	}
 	advanceResetTime := resolveAdvanceResetTime(req.AdvanceResetTime)
-	result, err := model.AdminResetPlanSubscriptions(planId, advanceResetTime)
+	result, replayed, err := model.ResetPlanSubscriptionsByAdmin(model.AdminSubscriptionOperationInput{
+		PlanId: planId, AdvanceResetTime: advanceResetTime,
+		ActorId: c.GetInt("id"), ActorRole: c.GetInt("role"), ActorRef: c.GetString("username"),
+		Reason: req.Reason, IdempotencyKey: req.IdempotencyKey,
+	})
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	recordSubscriptionResetUserLogs(c, result, auditOperatorInfo(c))
-	common.SysLog(fmt.Sprintf("admin reset subscription plan %d quota: reset_count=%d user_count=%d advance_reset_time=%t",
-		result.PlanId, result.ResetCount, result.UserCount, result.AdvanceResetTime))
-	recordManageAudit(c, "subscription.plan_reset", map[string]any{
-		"plan_id":            result.PlanId,
-		"plan_title":         result.PlanTitle,
-		"reset_count":        result.ResetCount,
-		"user_count":         result.UserCount,
-		"advance_reset_time": result.AdvanceResetTime,
-	})
+	result.Replayed = replayed
+	if !replayed {
+		recordSubscriptionResetUserLogs(c, result, auditOperatorInfo(c))
+		common.SysLog(fmt.Sprintf("admin reset subscription plan %d quota: reset_count=%d user_count=%d advance_reset_time=%t",
+			result.PlanId, result.ResetCount, result.UserCount, result.AdvanceResetTime))
+		recordManageAudit(c, "subscription.plan_reset", map[string]interface{}{
+			"plan_id":            result.PlanId,
+			"plan_title":         result.PlanTitle,
+			"reset_count":        result.ResetCount,
+			"user_count":         result.UserCount,
+			"advance_reset_time": result.AdvanceResetTime,
+			"reason":             strings.TrimSpace(req.Reason),
+		})
+	} else {
+		markAuditLogged(c)
+	}
 	common.ApiSuccess(c, result)
 }
 
@@ -515,33 +588,41 @@ func AdminInvalidateUserSubscription(c *gin.Context) {
 		common.ApiErrorMsg(c, "无效的订阅ID")
 		return
 	}
-	msg, err := model.AdminInvalidateUserSubscription(subId)
+	var req AdminInvalidateSubscriptionRequest
+	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Reason) == "" ||
+		strings.TrimSpace(req.IdempotencyKey) == "" {
+		common.ApiErrorMsg(c, "参数错误")
+		return
+	}
+	result, replayed, err := model.InvalidateUserSubscriptionByAdmin(model.AdminSubscriptionOperationInput{
+		UserSubscriptionId: subId, ActorId: c.GetInt("id"), ActorRole: c.GetInt("role"),
+		ActorRef: c.GetString("username"), Reason: req.Reason, IdempotencyKey: req.IdempotencyKey,
+	})
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	if msg != "" {
-		common.ApiSuccess(c, gin.H{"message": msg})
-		return
+	if !replayed {
+		recordManageAuditFor(c, result.UserId, "subscription.entitlement_invalidate", map[string]interface{}{
+			"subscription_id":   result.UserSubscriptionId,
+			"plan_id":           result.PlanId,
+			"previous_status":   result.StatusBefore,
+			"current_status":    result.StatusAfter,
+			"previous_end_time": result.EndTimeBefore,
+			"current_end_time":  result.EndTimeAfter,
+			"previous_group":    result.UserGroupBefore,
+			"current_group":     result.UserGroupAfter,
+			"reason":            strings.TrimSpace(req.Reason),
+			"request_method":    c.Request.Method,
+		})
+	} else {
+		markAuditLogged(c)
 	}
-	common.ApiSuccess(c, nil)
+	common.ApiSuccess(c, result)
 }
 
-// AdminDeleteUserSubscription hard-deletes a user subscription.
+// AdminDeleteUserSubscription preserves the legacy route while invalidating
+// the entitlement so payment and refund evidence remains queryable.
 func AdminDeleteUserSubscription(c *gin.Context) {
-	subId, _ := strconv.Atoi(c.Param("id"))
-	if subId <= 0 {
-		common.ApiErrorMsg(c, "无效的订阅ID")
-		return
-	}
-	msg, err := model.AdminDeleteUserSubscription(subId)
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	if msg != "" {
-		common.ApiSuccess(c, gin.H{"message": msg})
-		return
-	}
-	common.ApiSuccess(c, nil)
+	AdminInvalidateUserSubscription(c)
 }

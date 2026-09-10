@@ -27,7 +27,8 @@ import (
 
 func modelManagementDB(t *testing.T, kind, dsn string) *gorm.DB {
 	t.Helper()
-	database, isolatedDSN := newAuditTestDatabase(t, kind, dsn)
+	sourceDatabase, isolatedDSN := newAuditTestDatabase(t, kind, dsn)
+	database := sourceDatabase
 	previousDB, previousLogDB := model.DB, model.LOG_DB
 	previousMain, previousLog := common.MainDatabaseType(), common.LogDatabaseType()
 	previousMaster, previousSQLite := common.IsMasterNode, common.SQLitePath
@@ -83,6 +84,12 @@ func modelManagementDB(t *testing.T, kind, dsn string) *gorm.DB {
 		connection, err := database.DB()
 		if err == nil {
 			require.NoError(t, connection.Close())
+		}
+		if sourceDatabase != database {
+			connection, err := sourceDatabase.DB()
+			if err == nil {
+				require.NoError(t, connection.Close())
+			}
 		}
 		model.DB, model.LOG_DB = previousDB, previousLogDB
 	})

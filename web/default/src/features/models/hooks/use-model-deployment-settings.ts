@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { t } from 'i18next'
+import { useTranslation } from 'react-i18next'
 
 import { getDeploymentSettings, testDeploymentConnection } from '../api'
 
@@ -54,6 +54,7 @@ export function clearConnectionCache() {
 type LoadingPhase = 'idle' | 'settings' | 'connection' | 'done'
 
 export function useModelDeploymentSettings() {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(true)
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>('settings')
   const [settings, setSettings] = useState<Record<string, unknown>>({
@@ -126,7 +127,7 @@ export function useModelDeploymentSettings() {
       setLoadingPhase('done')
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   // Initial load
   useEffect(() => {
@@ -162,7 +163,7 @@ export function useModelDeploymentSettings() {
     } finally {
       setLoadingPhase('done')
     }
-  }, [])
+  }, [t])
 
   // Refresh all (skip cache)
   const refresh = useCallback(() => {

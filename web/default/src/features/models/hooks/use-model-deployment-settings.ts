@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { t } from 'i18next'
 
 import { getDeploymentSettings, testDeploymentConnection } from '../api'
 
@@ -108,13 +109,13 @@ export function useModelDeploymentSettings() {
           setCachedConnection(true)
           setConnectionState({ loading: false, ok: true, error: null })
         } else {
-          const message = connResponse?.message || 'Connection failed'
+          const message = connResponse?.message || t('Connection failed')
           setCachedConnection(false)
           setConnectionState({ loading: false, ok: false, error: message })
         }
       } catch (error: unknown) {
         const errMsg =
-          error instanceof Error ? error.message : 'Connection failed'
+          error instanceof Error ? error.message : t('Connection failed')
         setCachedConnection(false)
         setConnectionState({ loading: false, ok: false, error: errMsg })
       }
@@ -150,12 +151,12 @@ export function useModelDeploymentSettings() {
         setConnectionState({ loading: false, ok: true, error: null })
         return
       }
-      const message = response?.message || 'Connection failed'
+      const message = response?.message || t('Connection failed')
       setCachedConnection(false)
       setConnectionState({ loading: false, ok: false, error: message })
     } catch (error: unknown) {
       const errMsg =
-        error instanceof Error ? error.message : 'Connection failed'
+        error instanceof Error ? error.message : t('Connection failed')
       setCachedConnection(false)
       setConnectionState({ loading: false, ok: false, error: errMsg })
     } finally {

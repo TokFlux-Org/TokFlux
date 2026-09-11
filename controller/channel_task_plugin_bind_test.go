@@ -70,7 +70,7 @@ export function parseTaskResult() { return {}; }
 	require.NoError(t, err)
 	t.Cleanup(func() { jsplugin.DefaultRegistry.Unregister(key) })
 
-	taskPluginBody := `{"mode":"single","channel":{"type":62,"name":"plugin-channel","key":"sk","models":"doc","group":"default","base_url":"https://example.com","setting":"{\"task_plugin_key\":\"channel-bind\"}"}}`
+	taskPluginBody := `{"mode":"single","channel":{"type":61,"name":"plugin-channel","key":"sk","models":"doc","group":"default","base_url":"https://example.com","setting":"{\"task_plugin_key\":\"channel-bind\"}"}}`
 	openaiBody := `{"mode":"single","channel":{"type":1,"name":"openai-channel","key":"sk","models":"gpt","group":"default"}}`
 
 	adminDenied := postAddChannel(t, 2, common.RoleAdminUser, taskPluginBody)
@@ -115,7 +115,7 @@ export function parseTaskResult() { return {}; }
 	require.NoError(t, channel.Insert())
 
 	payload := fmt.Sprintf(
-		`{"id":%d,"type":62,"name":"existing-plugin","key":"sk","models":"doc","group":"default","base_url":"https://example.com","setting":"{\"task_plugin_key\":\"channel-bind-update\"}"}`,
+		`{"id":%d,"type":61,"name":"existing-plugin","key":"sk","models":"doc","group":"default","base_url":"https://example.com","setting":"{\"task_plugin_key\":\"channel-bind-update\"}"}`,
 		channel.Id,
 	)
 	gin.SetMode(gin.TestMode)
@@ -145,7 +145,7 @@ export function parseTaskResult() { return {}; }
 		t.Cleanup(func() { jsplugin.DefaultRegistry.Unregister(key) })
 	}
 	body := func(pluginKey string) string {
-		return fmt.Sprintf(`{"mode":"single","channel":{"type":62,"name":"%s","key":"sk","models":"doc","group":"default","setting":"{\"task_plugin_key\":\"%s\"}"}}`, pluginKey, pluginKey)
+		return fmt.Sprintf(`{"mode":"single","channel":{"type":61,"name":"%s","key":"sk","models":"doc","group":"default","setting":"{\"task_plugin_key\":\"%s\"}"}}`, pluginKey, pluginKey)
 	}
 
 	noDefault := postAddChannel(t, 1, common.RoleRootUser, body("bind-no-default"))

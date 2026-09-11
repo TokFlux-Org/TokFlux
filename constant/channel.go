@@ -55,12 +55,12 @@ const (
 	ChannelTypeSora           = 55
 	ChannelTypeReplicate      = 56
 	ChannelTypeCodex          = 57
-	// Keep existing channel IDs stable because they are persisted in the database.
-	ChannelTypeMiMO           = 58
-	ChannelTypeAdvancedCustom = 59
-	ChannelTypeSub2API        = 60
-	ChannelTypeNewAPI         = 61
-	ChannelTypeTaskPlugin     = 62
+	// These values are persisted in the database. The one-time migration in
+	// model restores the sequence after the removed MiMo type-58 channel.
+	ChannelTypeAdvancedCustom = 58
+	ChannelTypeSub2API        = 59
+	ChannelTypeNewAPI         = 60
+	ChannelTypeTaskPlugin     = 61
 	ChannelTypeDummy          // this one is only for count, do not add any channel after this
 
 )
@@ -124,11 +124,10 @@ var ChannelBaseURLs = []string{
 	"https://api.openai.com",                    //55
 	"https://api.replicate.com",                 //56
 	"https://chatgpt.com",                       //57
-	"https://api.xiaomimimo.com",                //58
+	"",                                          //58
 	"",                                          //59
 	"",                                          //60
 	"",                                          //61
-	"",                                          //62
 }
 
 func GetChannelBaseURL(channelType int) string {
@@ -193,7 +192,6 @@ var ChannelTypeNames = map[int]string{
 	ChannelTypeSora:           "Sora",
 	ChannelTypeReplicate:      "Replicate",
 	ChannelTypeCodex:          "Codex",
-	ChannelTypeMiMO:           "Xiaomi MiMo",
 	ChannelTypeAdvancedCustom: "Advanced Custom",
 	ChannelTypeSub2API:        "Sub2API",
 	ChannelTypeNewAPI:         "New API",

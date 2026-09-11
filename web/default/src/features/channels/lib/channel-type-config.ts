@@ -83,16 +83,6 @@ export const CHANNEL_TYPE_CONFIGS: Record<number, ChannelTypeConfig> = {
       models: 'claude-3-opus,claude-3-sonnet,claude-3-haiku',
     },
   },
-  58: {
-    id: 58,
-    name: CHANNEL_TYPES[58],
-    icon: 'xiaomimimo',
-    defaultBaseUrl: 'https://api.xiaomimimo.com',
-    hints: {
-      baseUrl: 'Default: https://api.xiaomimimo.com',
-      models: 'OpenAI-compatible or Anthropic-compatible model IDs',
-    },
-  },
   24: {
     id: 24,
     name: CHANNEL_TYPES[24],
@@ -144,9 +134,9 @@ export const CHANNEL_TYPE_CONFIGS: Record<number, ChannelTypeConfig> = {
       baseUrl: 'Default: https://api.replicate.com',
     },
   },
-  59: {
-    id: 59,
-    name: CHANNEL_TYPES[59],
+  58: {
+    id: 58,
+    name: CHANNEL_TYPES[58],
     icon: 'NewAPI',
     hints: {
       baseUrl: 'Fallback base URL',
@@ -154,9 +144,9 @@ export const CHANNEL_TYPE_CONFIGS: Record<number, ChannelTypeConfig> = {
       models: 'Models exposed by this channel',
     },
   },
-  60: {
-    id: 60,
-    name: CHANNEL_TYPES[60],
+  59: {
+    id: 59,
+    name: CHANNEL_TYPES[59],
     icon: 'Sub2API',
     hints: {
       baseUrl: 'Sub2API gateway base URL',
@@ -164,9 +154,9 @@ export const CHANNEL_TYPE_CONFIGS: Record<number, ChannelTypeConfig> = {
       models: 'Models fetched from upstream /v1/models',
     },
   },
-  61: {
-    id: 61,
-    name: CHANNEL_TYPES[61],
+  60: {
+    id: 60,
+    name: CHANNEL_TYPES[60],
     icon: 'NewAPI',
     hints: {
       baseUrl: 'Base URL is required for this channel type',

@@ -1376,7 +1376,7 @@ func logTaskPluginChannelDecision(c *gin.Context, channel *model.Channel, modelN
 	}
 	identityMode := "legacy_channel_type"
 	if channel.Type == constant.ChannelTypeTaskPlugin {
-		identityMode = "type59_setting"
+		identityMode = "type61_setting"
 	}
 	logger.LogDebug(
 		c,

@@ -36,7 +36,6 @@ const (
 	APITypeMiniMax
 	APITypeReplicate
 	APITypeCodex
-	APITypeMiMO
 	APITypeAdvancedCustom
 	APITypeSub2API
 	APITypeNewAPI

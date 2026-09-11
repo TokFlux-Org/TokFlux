@@ -35,7 +35,10 @@ import {
   useSaveModelPricing,
   type ModelPricingConfig,
 } from '@/features/model-pricing/api'
-import { pricingOptions } from '@/features/model-pricing/pricing'
+import {
+  mergeModelPricingDefaults,
+  pricingOptions,
+} from '@/features/model-pricing/pricing'
 import { handleServerError } from '@/lib/handle-server-error'
 
 import { SettingsPageTitleStatusPortal } from '../components/settings-page-context'
@@ -187,16 +190,10 @@ export function RatioSettingsCard({
   const modelDefaults = useMemo(
     () =>
       pricingBaseline
-        ? {
-            ...initialModelDefaults,
-            ...pricingBaseline.options,
-            BillingMode:
-              pricingBaseline.options['billing_setting.billing_mode'],
-            BillingExpr:
-              pricingBaseline.options['billing_setting.billing_expr'],
-            ImageBillingRules:
-              pricingBaseline.options['billing_setting.image_billing_rules'],
-          }
+        ? mergeModelPricingDefaults(
+            initialModelDefaults,
+            pricingBaseline.options
+          )
         : initialModelDefaults,
     [initialModelDefaults, pricingBaseline]
   )
@@ -273,9 +270,7 @@ export function RatioSettingsCard({
       ),
       BillingMode: formatJsonForTextarea(modelDefaults.BillingMode),
       BillingExpr: formatJsonForTextarea(modelDefaults.BillingExpr),
-      ImageBillingRules: formatJsonForTextarea(
-        modelDefaults.ImageBillingRules
-      ),
+      ImageBillingRules: formatJsonForTextarea(modelDefaults.ImageBillingRules),
     },
   })
 
@@ -328,9 +323,7 @@ export function RatioSettingsCard({
       ),
       BillingMode: formatJsonForTextarea(modelDefaults.BillingMode),
       BillingExpr: formatJsonForTextarea(modelDefaults.BillingExpr),
-      ImageBillingRules: formatJsonForTextarea(
-        modelDefaults.ImageBillingRules
-      ),
+      ImageBillingRules: formatJsonForTextarea(modelDefaults.ImageBillingRules),
     })
   }, [modelDefaults, modelForm])
 

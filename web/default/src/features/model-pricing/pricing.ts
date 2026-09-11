@@ -45,6 +45,33 @@ export type PricingKey = (typeof PRICING_KEYS)[number]
 export type PricingValues = Partial<Record<PricingKey, number | string>>
 export type PricingOptions = Record<PricingKey, string>
 
+type ModelPricingDefaults = {
+  BillingMode: string
+  BillingExpr: string
+  ImageBillingRules: string
+}
+
+/**
+ * Merge the snapshot's full-map options without letting an older backend
+ * response erase fields that are still supplied by the settings endpoint.
+ */
+export function mergeModelPricingDefaults<T extends ModelPricingDefaults>(
+  defaults: T,
+  options: Partial<PricingOptions>
+): T {
+  return {
+    ...defaults,
+    ...options,
+    BillingMode:
+      options['billing_setting.billing_mode'] ?? defaults.BillingMode,
+    BillingExpr:
+      options['billing_setting.billing_expr'] ?? defaults.BillingExpr,
+    ImageBillingRules:
+      options['billing_setting.image_billing_rules'] ??
+      defaults.ImageBillingRules,
+  }
+}
+
 export function modelPricingDisplay(
   entry: Pick<ModelPricingEntry, 'model_name' | 'effective' | 'usage_schema'>
 ): PricingModel {
@@ -107,8 +134,9 @@ export function pricingOptions(
       let value = values[key]
       if (key === 'billing_setting.billing_mode') value ??= values.BillingMode
       if (key === 'billing_setting.billing_expr') value ??= values.BillingExpr
-      if (key === 'billing_setting.image_billing_rules')
+      if (key === 'billing_setting.image_billing_rules') {
         value ??= values.ImageBillingRules
+      }
       return [key, typeof value === 'string' ? value : '{}']
     })
   ) as PricingOptions

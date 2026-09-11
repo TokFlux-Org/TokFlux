@@ -406,6 +406,9 @@ func migrateDB() error {
 	if err != nil {
 		return err
 	}
+	if err := migrateRemovedMiMoChannelTypes(DB); err != nil {
+		return err
+	}
 	if err := BackfillNullUserRefundHolds(); err != nil {
 		return err
 	}

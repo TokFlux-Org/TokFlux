@@ -201,6 +201,10 @@ func loadOptionsFromDatabase() {
 	options, _ := AllOption()
 	dbOptions := make(map[string]string, len(options))
 	for _, option := range options {
+		// Migration markers are internal state, not runtime configuration.
+		if option.Key == removedMiMoChannelTypeMigrationKey {
+			continue
+		}
 		dbOptions[option.Key] = option.Value
 		if isLegacyOptionKey(option.Key) {
 			continue

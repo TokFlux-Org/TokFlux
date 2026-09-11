@@ -210,7 +210,7 @@ export function useModelsColumns(
       size: 180,
       enableSorting: false,
       cell: ({ row }) => {
-        const state = getModelChannelState(row.original)
+        const state = getModelChannelState(row.original, t)
         return (
           <div className='min-w-0 text-sm'>
             <Tooltip>

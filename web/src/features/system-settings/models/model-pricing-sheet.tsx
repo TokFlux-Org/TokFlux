@@ -99,12 +99,6 @@ import {
   parseImageBillingRuleJson,
 } from './image-billing-rule-editor'
 import {
-  ImageBillingRuleEditor,
-  formatImageBillingRule,
-  isLikelyImageModelName,
-  parseImageBillingRuleJson,
-} from './image-billing-rule-editor'
-import {
   EMPTY_LANE_ENABLED,
   EMPTY_LANE_PRICES,
   buildPreviewRows,
@@ -761,6 +755,7 @@ export const ModelPricingEditorPanel = forwardRef<
     }
     if (!(await form.trigger()) || !validatePricingValues()) return
     const draft = buildSubmitData(form.getValues())
+    if (!draft) return
     const generation = ++conversionGeneration.current
     setConversionReason('')
     try {
@@ -771,6 +766,7 @@ export const ModelPricingEditorPanel = forwardRef<
       })
       if (generation !== conversionGeneration.current) return
       const current = buildSubmitData(form.getValues())
+      if (!current) return
       if (
         current.name !== draft.name ||
         JSON.stringify(pricingFromDraft(current)) !== JSON.stringify(pricing)

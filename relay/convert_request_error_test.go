@@ -36,10 +36,12 @@ func (s *imageReservation) Reserve(quota int) error {
 	s.held = max(s.held, quota)
 	return nil
 }
-func (s *imageReservation) GetPreConsumedQuota() int { return s.held }
-func (*imageReservation) Settle(int) error           { return nil }
-func (*imageReservation) Refund(*gin.Context)        {}
-func (*imageReservation) NeedsRefund() bool          { return false }
+func (s *imageReservation) ReserveUsage(quota int) error { return s.Reserve(quota) }
+func (s *imageReservation) GetPreConsumedQuota() int     { return s.held }
+func (*imageReservation) Settle(int) error               { return nil }
+func (*imageReservation) ConfirmDispatch() error         { return nil }
+func (*imageReservation) Refund(*gin.Context)            {}
+func (*imageReservation) NeedsRefund() bool              { return false }
 
 func TestImageRequestReservesFinalQuantityBeforeUpstream(t *testing.T) {
 	service.InitHttpClient()

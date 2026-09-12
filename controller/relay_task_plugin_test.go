@@ -424,7 +424,7 @@ func TestImmediateTaskSettlementDatabase(t *testing.T) {
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	models := []any{&model.User{}, &model.Channel{}, &model.Task{}, &model.Log{}}
+	models := []any{&model.User{}, &model.Channel{}, &model.Task{}, &model.Log{}, &model.BillingAdjustmentJournal{}}
 	require.NoError(t, db.AutoMigrate(models...))
 	t.Cleanup(func() { require.NoError(t, db.Migrator().DropTable(models...)) })
 	var version string

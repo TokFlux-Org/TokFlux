@@ -64,6 +64,7 @@ export function PricingConversionDialog(props: {
     before.billingMode ?? 'per-token',
     '',
     '',
+    '',
     lanes.promptPrice,
     lanes.prices,
     lanes.enabled,

@@ -330,7 +330,7 @@ func (s *BillingSession) Reserve(targetQuota int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	alreadyDispatched := s.dispatchOccurred || (s.initialReservation == nil && len(s.pendingDispatch) == 0)
+	alreadyDispatched := s.dispatchOccurred
 	imageRequest := false
 	if s.relayInfo != nil {
 		_, imageRequest = s.relayInfo.Request.(*dto.ImageRequest)
@@ -432,6 +432,7 @@ func (s *BillingSession) confirmDispatchLocked() error {
 	if err := model.MarkBillingAdjustmentsDispatchConfirmed(operationKeys); err != nil {
 		return types.NewError(err, types.ErrorCodeUpdateDataError, types.ErrOptionWithSkipRetry())
 	}
+	s.dispatchOccurred = true
 	s.initialReservation = nil
 	s.pendingDispatch = nil
 	return nil

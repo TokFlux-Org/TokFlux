@@ -58,7 +58,7 @@ type ModelPricingDefaults = {
   BillingMode: string
   BillingExpr: string
   ImageBillingRules: string
-  PluginBillingExpr: string
+  PluginBillingExpr?: string
 }
 
 /**
@@ -69,7 +69,7 @@ export function mergeModelPricingDefaults<T extends ModelPricingDefaults>(
   defaults: T,
   options: Partial<PricingOptions>
 ): T {
-  return {
+  const merged = {
     ...defaults,
     ...options,
     BillingMode:
@@ -79,10 +79,18 @@ export function mergeModelPricingDefaults<T extends ModelPricingDefaults>(
     ImageBillingRules:
       options['billing_setting.image_billing_rules'] ??
       defaults.ImageBillingRules,
-    PluginBillingExpr:
+  } as T & Partial<ModelPricingDefaults>
+  if (
+    options['billing_setting.plugin_billing_expr'] !== undefined ||
+    Object.prototype.hasOwnProperty.call(defaults, 'PluginBillingExpr')
+  ) {
+    merged.PluginBillingExpr =
       options['billing_setting.plugin_billing_expr'] ??
-      defaults.PluginBillingExpr,
+      defaults.PluginBillingExpr ??
+      '{}'
   }
+  return merged as T
+}
 
 export type CacheWriteMode = 'none' | 'standard' | 'claude_ttl'
 

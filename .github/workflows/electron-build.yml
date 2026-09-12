@@ -63,10 +63,7 @@ jobs:
         run: |
           cd web
           bun install --frozen-lockfile
-          cd default
           DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$VERSION bun run build
-          cd ../classic
-          VITE_REACT_APP_VERSION=$VERSION bun run build
 
       # - name: Build Go binary (macos/Linux)
       #   if: runner.os != 'Windows'

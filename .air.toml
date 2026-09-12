@@ -14,10 +14,8 @@ tmp_dir = "tmp"
     "electron",
     "logs",
     "tmp",
-    "web/classic/dist",
-    "web/classic/node_modules",
-    "web/default/dist",
-    "web/default/node_modules"
+    "web/dist",
+    "web/node_modules"
   ]
   exclude_file = []
   exclude_regex = ["_test\\.go"]

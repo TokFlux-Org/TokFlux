@@ -244,8 +244,7 @@ func changedFiles(previous, current map[string]fileState) []string {
 
 func ensureDist() error {
 	paths := []string{
-		filepath.Join("web", "default", "dist", "index.html"),
-		filepath.Join("web", "classic", "dist", "index.html"),
+		filepath.Join("web", "dist", "index.html"),
 	}
 	for _, path := range paths {
 		if err := ensureFile(path); err != nil {
@@ -281,8 +280,7 @@ func shouldSkipDir(path string) bool {
 		"logs",
 		"tmp",
 		"upload",
-		"web/classic/dist",
-		"web/default/dist",
+		"web/dist",
 		"web/node_modules":
 		return true
 	default:

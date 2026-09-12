@@ -54,10 +54,12 @@ export type TaskPluginOption = {
   website?: string
   key: string
   name: string
+  description?: Record<string, string> | null
   icon?: string
   hasIcon?: boolean
   baseUrl?: string
   models: string[]
+  channelTypes?: number[] | null
 }
 
 export async function getTaskPluginOptions(): Promise<TaskPluginOption[]> {

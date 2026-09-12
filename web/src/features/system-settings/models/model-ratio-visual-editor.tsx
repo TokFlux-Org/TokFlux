@@ -47,8 +47,14 @@ import {
   useDataTable,
 } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
+import { useModelPricing } from '@/features/model-pricing/api'
+import {
+  applyPricingDraft,
+  pricingOptions,
+} from '@/features/model-pricing/pricing'
 import { usePricingData } from '@/features/pricing/hooks/use-pricing-data'
 import { combineBillingExpr } from '@/features/pricing/lib/billing-expr'
+import { splitPluginBillingExprKey } from '@/features/pricing/lib/plugin-pricing'
 import { useMediaQuery } from '@/hooks'
 
 import { safeJsonParse } from '../utils/json-parser'
@@ -83,6 +89,7 @@ type ModelRatioVisualEditorProps = {
   savedBillingMode: string
   savedBillingExpr: string
   savedImageBillingRules: string
+  savedPluginBillingExpr?: string
   modelPrice: string
   modelRatio: string
   cacheRatio: string
@@ -94,6 +101,7 @@ type ModelRatioVisualEditorProps = {
   billingMode: string
   billingExpr: string
   imageBillingRules: string
+  pluginBillingExpr?: string
   candidateModelNames?: string[]
   candidateModelsLoading?: boolean
   filterMode?: 'all' | 'unset'
@@ -124,6 +132,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
     savedBillingMode,
     savedBillingExpr,
     savedImageBillingRules,
+    savedPluginBillingExpr = '{}',
     modelPrice,
     modelRatio,
     cacheRatio,
@@ -135,6 +144,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
     billingMode,
     billingExpr,
     imageBillingRules,
+    pluginBillingExpr = '{}',
     candidateModelNames,
     candidateModelsLoading,
     filterMode = 'all',
@@ -150,6 +160,10 @@ const ModelRatioVisualEditorComponent = forwardRef<
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editorOpen, setEditorOpen] = useState(false)
   const [editData, setEditData] = useState<ModelRatioData | null>(null)
+  const pricingConfig = useModelPricing(
+    editData?.name ? [editData.name] : [],
+    Boolean(editData?.name)
+  )
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState('')
@@ -225,6 +239,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
       billingMode: savedBillingMode,
       billingExpr: savedBillingExpr,
       imageBillingRules: savedImageBillingRules,
+      pluginBillingExpr: savedPluginBillingExpr,
     })
     const draftRows = buildModelSnapshots({
       modelPrice,
@@ -238,6 +253,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
       billingMode,
       billingExpr,
       imageBillingRules,
+      pluginBillingExpr,
     })
 
     const savedByName = new Map(savedRows.map((row) => [row.name, row]))
@@ -282,6 +298,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
     savedBillingMode,
     savedBillingExpr,
     savedImageBillingRules,
+    savedPluginBillingExpr,
     modelPrice,
     modelRatio,
     cacheRatio,
@@ -293,6 +310,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
     billingMode,
     billingExpr,
     imageBillingRules,
+    pluginBillingExpr,
   ])
 
   const modeCounts = useMemo(() => {
@@ -341,6 +359,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
         audioCompletionRatio: editableModel.audioCompletionRatio,
         billingMode: editBillingMode,
         billingExpr: editableModel.billingExpr,
+        pluginBillingExpr: editableModel.pluginBillingExpr,
         requestRuleExpr: editableModel.requestRuleExpr,
       })
       setEditorOpen(true)
@@ -427,6 +446,19 @@ const ModelRatioVisualEditorComponent = forwardRef<
       delete billingModeMap[name]
       delete billingExprMap[name]
       delete imageBillingRulesMap[name]
+      const pluginExprMap = safeJsonParse<Record<string, string>>(
+        pluginBillingExpr,
+        { fallback: {} }
+      )
+      for (const variant of Object.keys(pluginExprMap)) {
+        if (splitPluginBillingExprKey(variant)?.[1] === name) {
+          delete pluginExprMap[variant]
+        }
+      }
+      onChange(
+        'billing_setting.plugin_billing_expr',
+        JSON.stringify(pluginExprMap)
+      )
 
       onChange('ModelPrice', JSON.stringify(priceMap, null, 2))
       onChange('ModelRatio', JSON.stringify(ratioMap, null, 2))
@@ -470,6 +502,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
       billingMode,
       billingExpr,
       imageBillingRules,
+      pluginBillingExpr,
       onChange,
       editData,
     ]
@@ -522,133 +555,37 @@ const ModelRatioVisualEditorComponent = forwardRef<
 
   const persistPricingData = useCallback(
     (data: ModelRatioData, targetNames: string[] = [data.name]) => {
-      const priceMap = safeJsonParse<Record<string, number>>(modelPrice, {
-        fallback: {},
-        silent: true,
+      const options = pricingOptions({
+        ModelPrice: modelPrice,
+        ModelRatio: modelRatio,
+        CompletionRatio: completionRatio,
+        CacheRatio: cacheRatio,
+        CreateCacheRatio: createCacheRatio,
+        ImageRatio: imageRatio,
+        AudioRatio: audioRatio,
+        AudioCompletionRatio: audioCompletionRatio,
+        BillingMode: billingMode,
+        BillingExpr: billingExpr,
+        ImageBillingRules: imageBillingRules,
+        PluginBillingExpr: pluginBillingExpr,
       })
-      const ratioMap = safeJsonParse<Record<string, number>>(modelRatio, {
-        fallback: {},
-        silent: true,
-      })
-      const cacheMap = safeJsonParse<Record<string, number>>(cacheRatio, {
-        fallback: {},
-        silent: true,
-      })
-      const createCacheMap = safeJsonParse<Record<string, number>>(
-        createCacheRatio,
+      const updated = applyPricingDraft(options, data, targetNames)
+      const imageBillingRulesMap = safeJsonParse<Record<string, ImageBillingRule>>(
+        updated['billing_setting.image_billing_rules'],
         { fallback: {}, silent: true }
       )
-      const completionMap = safeJsonParse<Record<string, number>>(
-        completionRatio,
-        { fallback: {}, silent: true }
-      )
-      const imageMap = safeJsonParse<Record<string, number>>(imageRatio, {
-        fallback: {},
-        silent: true,
-      })
-      const audioMap = safeJsonParse<Record<string, number>>(audioRatio, {
-        fallback: {},
-        silent: true,
-      })
-      const audioCompletionMap = safeJsonParse<Record<string, number>>(
-        audioCompletionRatio,
-        { fallback: {}, silent: true }
-      )
-      const billingModeMap = safeJsonParse<Record<string, string>>(
-        billingMode,
-        { fallback: {}, silent: true }
-      )
-      const billingExprMap = safeJsonParse<Record<string, string>>(
-        billingExpr,
-        { fallback: {}, silent: true }
-      )
-      const imageBillingRulesMap = safeJsonParse<
-        Record<string, ImageBillingRule>
-      >(imageBillingRules, { fallback: {}, silent: true })
-
-      const setIfPresent = (
-        target: Record<string, number>,
-        name: string,
-        value: string | undefined
-      ) => {
-        if (!value || value === '') return
-        const parsed = parseFloat(value)
-        if (Number.isFinite(parsed)) target[name] = parsed
-      }
-
-      targetNames.forEach((name) => {
-        delete priceMap[name]
-        delete ratioMap[name]
-        delete cacheMap[name]
-        delete createCacheMap[name]
-        delete completionMap[name]
-        delete imageMap[name]
-        delete audioMap[name]
-        delete audioCompletionMap[name]
-        delete billingModeMap[name]
-        delete billingExprMap[name]
+      for (const name of targetNames) {
         delete imageBillingRulesMap[name]
-
-        if (data.billingMode === 'tiered_expr') {
-          const combined = combineBillingExpr(
-            data.billingExpr || '',
-            data.requestRuleExpr || ''
-          )
-          if (combined) {
-            billingModeMap[name] = 'tiered_expr'
-            billingExprMap[name] = combined
-          }
-          // Always serialize ratio/price values for tiered_expr models so they
-          // serve as fallback during multi-instance sync delays. The backend's
-          // ModelPriceHelper checks billing_mode first, so these values are
-          // only consulted when billing_setting hasn't propagated yet.
-          setIfPresent(priceMap, name, data.price)
-          setIfPresent(ratioMap, name, data.ratio)
-          setIfPresent(cacheMap, name, data.cacheRatio)
-          setIfPresent(createCacheMap, name, data.createCacheRatio)
-          setIfPresent(completionMap, name, data.completionRatio)
-          setIfPresent(imageMap, name, data.imageRatio)
-          setIfPresent(audioMap, name, data.audioRatio)
-          setIfPresent(audioCompletionMap, name, data.audioCompletionRatio)
-        } else if (data.billingMode === 'per-request') {
-          setIfPresent(priceMap, name, data.price)
-          if (data.imageBillingRule?.enabled) {
-            imageBillingRulesMap[name] = data.imageBillingRule
-          }
-        } else {
-          setIfPresent(ratioMap, name, data.ratio)
-          setIfPresent(cacheMap, name, data.cacheRatio)
-          setIfPresent(createCacheMap, name, data.createCacheRatio)
-          setIfPresent(completionMap, name, data.completionRatio)
-          setIfPresent(imageMap, name, data.imageRatio)
-          setIfPresent(audioMap, name, data.audioRatio)
-          setIfPresent(audioCompletionMap, name, data.audioCompletionRatio)
+        if (data.imageBillingRule?.enabled) {
+          imageBillingRulesMap[name] = data.imageBillingRule
         }
-      })
-
-      onChange('ModelPrice', JSON.stringify(priceMap, null, 2))
-      onChange('ModelRatio', JSON.stringify(ratioMap, null, 2))
-      onChange('CacheRatio', JSON.stringify(cacheMap, null, 2))
-      onChange('CreateCacheRatio', JSON.stringify(createCacheMap, null, 2))
-      onChange('CompletionRatio', JSON.stringify(completionMap, null, 2))
-      onChange('ImageRatio', JSON.stringify(imageMap, null, 2))
-      onChange('AudioRatio', JSON.stringify(audioMap, null, 2))
-      onChange(
-        'AudioCompletionRatio',
-        JSON.stringify(audioCompletionMap, null, 2)
+      }
+      updated['billing_setting.image_billing_rules'] = JSON.stringify(
+        imageBillingRulesMap,
+        null,
+        2
       )
-      onChange(
-        'billing_setting.billing_mode',
-        JSON.stringify(billingModeMap, null, 2)
-      )
-      onChange(
-        'billing_setting.billing_expr',
-        JSON.stringify(billingExprMap, null, 2)
-      )
-      onChange(
-        'billing_setting.image_billing_rules',
-        JSON.stringify(imageBillingRulesMap, null, 2)
-      )
+      for (const [key, value] of Object.entries(updated)) onChange(key, value)
     },
     [
       modelPrice,
@@ -662,6 +599,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
       billingMode,
       billingExpr,
       imageBillingRules,
+      pluginBillingExpr,
       onChange,
     ]
   )
@@ -743,12 +681,12 @@ const ModelRatioVisualEditorComponent = forwardRef<
                 title: t('Mode'),
                 options: [
                   {
-                    label: 'Per-token',
+                    label: 'Per-token (deprecated)',
                     value: 'per-token',
                     count: modeCounts['per-token'],
                   },
                   {
-                    label: 'Per-request',
+                    label: 'Per-request (deprecated)',
                     value: 'per-request',
                     count: modeCounts['per-request'],
                   },
@@ -837,6 +775,16 @@ const ModelRatioVisualEditorComponent = forwardRef<
             <ModelPricingEditorPanel
               ref={editorPanelRef}
               editData={editData}
+              pluginVariants={
+                pricingConfig.data?.entries.find(
+                  (entry) => entry.model_name === editData?.name
+                )?.plugin_variants
+              }
+              usageSchema={
+                pricingConfig.data?.entries.find(
+                  (entry) => entry.model_name === editData?.name
+                )?.usage_schema
+              }
               onSave={onSave}
               isSaving={isSaving}
               className='h-full min-h-0'
@@ -877,6 +825,16 @@ const ModelRatioVisualEditorComponent = forwardRef<
           open={sheetOpen}
           onOpenChange={setSheetOpen}
           editData={editData}
+          pluginVariants={
+            pricingConfig.data?.entries.find(
+              (entry) => entry.model_name === editData?.name
+            )?.plugin_variants
+          }
+          usageSchema={
+            pricingConfig.data?.entries.find(
+              (entry) => entry.model_name === editData?.name
+            )?.usage_schema
+          }
           onSave={onSave}
           isSaving={isSaving}
         />
@@ -901,6 +859,7 @@ export const ModelRatioVisualEditor = memo(
         nextProps.savedAudioCompletionRatio &&
       prevProps.savedBillingMode === nextProps.savedBillingMode &&
       prevProps.savedBillingExpr === nextProps.savedBillingExpr &&
+      prevProps.savedPluginBillingExpr === nextProps.savedPluginBillingExpr &&
       prevProps.modelPrice === nextProps.modelPrice &&
       prevProps.modelRatio === nextProps.modelRatio &&
       prevProps.cacheRatio === nextProps.cacheRatio &&
@@ -913,6 +872,7 @@ export const ModelRatioVisualEditor = memo(
       prevProps.billingExpr === nextProps.billingExpr &&
       prevProps.savedImageBillingRules === nextProps.savedImageBillingRules &&
       prevProps.imageBillingRules === nextProps.imageBillingRules &&
+      prevProps.pluginBillingExpr === nextProps.pluginBillingExpr &&
       prevProps.candidateModelNames === nextProps.candidateModelNames &&
       prevProps.candidateModelsLoading === nextProps.candidateModelsLoading &&
       prevProps.filterMode === nextProps.filterMode &&

@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
 
 	"github.com/bytedance/gopkg/util/gopool"
@@ -329,7 +330,13 @@ func (s *BillingSession) Reserve(targetQuota int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.settled || s.refunded || s.refunding || s.trusted {
+	alreadyDispatched := s.dispatchOccurred || (s.initialReservation == nil && len(s.pendingDispatch) == 0)
+	imageRequest := false
+	if s.relayInfo != nil {
+		_, imageRequest = s.relayInfo.Request.(*dto.ImageRequest)
+		imageRequest = imageRequest || s.relayInfo.ImageRequestCount > 0
+	}
+	if s.settled || s.refunded || s.trusted && !imageRequest || targetQuota <= s.preConsumedQuota {
 		return nil
 	}
 
@@ -359,12 +366,29 @@ func (s *BillingSession) Reserve(targetQuota int) error {
 		delta,
 		tokenRequired,
 		true,
-		false,
+		alreadyDispatched,
 	)
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeUpdateDataError, types.ErrOptionWithSkipRetry())
 	}
 	s.pendingDispatch = append(s.pendingDispatch, adjustment)
+	if imageRequest {
+		s.trusted = false
+	}
+	if alreadyDispatched {
+		if err := s.applyReservationLocked(adjustment); err != nil {
+			s.pendingDispatch = s.pendingDispatch[:len(s.pendingDispatch)-1]
+			return err
+		}
+		s.pendingDispatch = s.pendingDispatch[:len(s.pendingDispatch)-1]
+	} else if imageRequest {
+		// Image overrides are resolved immediately before the outbound request.
+		// Authorize the initial and quantity-adjusted reservations together so
+		// insufficient wallet/token balances fail before the provider call.
+		if err := s.confirmDispatchLocked(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

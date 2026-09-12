@@ -131,6 +131,7 @@ const createModelSchema = (t: Translate) =>
     BillingMode: createJsonStringField(t),
     BillingExpr: createJsonStringField(t),
     ImageBillingRules: createJsonStringField(t),
+    PluginBillingExpr: createJsonStringField(t),
   })
 
 const createGroupSchema = (t: Translate) =>
@@ -233,6 +234,7 @@ export function RatioSettingsCard({
     BillingMode: normalizeJsonString(modelDefaults.BillingMode),
     BillingExpr: normalizeJsonString(modelDefaults.BillingExpr),
     ImageBillingRules: normalizeJsonString(modelDefaults.ImageBillingRules),
+    PluginBillingExpr: normalizeJsonString(modelDefaults.PluginBillingExpr),
   })
   const [savedModelValues, setSavedModelValues] = useState(
     modelNormalizedDefaults.current
@@ -271,6 +273,7 @@ export function RatioSettingsCard({
       BillingMode: formatJsonForTextarea(modelDefaults.BillingMode),
       BillingExpr: formatJsonForTextarea(modelDefaults.BillingExpr),
       ImageBillingRules: formatJsonForTextarea(modelDefaults.ImageBillingRules),
+      PluginBillingExpr: formatJsonForTextarea(modelDefaults.PluginBillingExpr),
     },
   })
 
@@ -306,6 +309,7 @@ export function RatioSettingsCard({
       BillingMode: normalizeJsonString(modelDefaults.BillingMode),
       BillingExpr: normalizeJsonString(modelDefaults.BillingExpr),
       ImageBillingRules: normalizeJsonString(modelDefaults.ImageBillingRules),
+      PluginBillingExpr: normalizeJsonString(modelDefaults.PluginBillingExpr),
     }
     setSavedModelValues(modelNormalizedDefaults.current)
 
@@ -324,6 +328,7 @@ export function RatioSettingsCard({
       BillingMode: formatJsonForTextarea(modelDefaults.BillingMode),
       BillingExpr: formatJsonForTextarea(modelDefaults.BillingExpr),
       ImageBillingRules: formatJsonForTextarea(modelDefaults.ImageBillingRules),
+      PluginBillingExpr: formatJsonForTextarea(modelDefaults.PluginBillingExpr),
     })
   }, [modelDefaults, modelForm])
 
@@ -369,6 +374,7 @@ export function RatioSettingsCard({
         BillingMode: normalizeJsonString(values.BillingMode),
         BillingExpr: normalizeJsonString(values.BillingExpr),
         ImageBillingRules: normalizeJsonString(values.ImageBillingRules),
+        PluginBillingExpr: normalizeJsonString(values.PluginBillingExpr),
       }
 
       if (!pricingBaseline) return

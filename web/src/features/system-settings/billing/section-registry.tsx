@@ -42,6 +42,7 @@ const getModelDefaults = (settings: BillingSettings) => ({
   BillingMode: settings['billing_setting.billing_mode'],
   BillingExpr: settings['billing_setting.billing_expr'],
   ImageBillingRules: settings['billing_setting.image_billing_rules'],
+  PluginBillingExpr: settings['billing_setting.plugin_billing_expr'],
 })
 
 const getGroupDefaults = (settings: BillingSettings) => ({

@@ -2201,6 +2201,7 @@
     "Enter only a top-level callback domain, for example https://api.example.com, without any path.": "Chỉ nhập tên miền callback cấp cao nhất, ví dụ https://api.example.com, không kèm đường dẫn.",
     "Enter password": "Nhập mật khẩu",
     "Enter password (8-20 characters)": "Nhập mật khẩu (8-20 ký tự)",
+    "Enter password (8–128 characters)": "Nhập mật khẩu (8–128 ký tự)",
     "Enter password (min 8 characters)": "Nhập mật khẩu (tối thiểu 8 ký tự)",
     "Enter quota in {{currency}}": "Nhập hạn mức bằng {{currency}}",
     "Enter quota in tokens": "Nhập hạn mức bằng token",

@@ -2201,6 +2201,7 @@
     "Enter only a top-level callback domain, for example https://api.example.com, without any path.": "コールバックのトップレベルドメインのみを入力してください。例: https://api.example.com。パスは含めないでください。",
     "Enter password": "パスワードを入力",
     "Enter password (8-20 characters)": "パスワードを入力 (8～20文字)",
+    "Enter password (8–128 characters)": "パスワードを入力（8～128文字）",
     "Enter password (min 8 characters)": "パスワードを入力（最小8文字）",
     "Enter quota in {{currency}}": "{{currency}} でクォータを入力",
     "Enter quota in tokens": "トークン単位でクォータを入力",

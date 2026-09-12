@@ -2201,6 +2201,7 @@
     "Enter only a top-level callback domain, for example https://api.example.com, without any path.": "Введите только домен верхнего уровня для callback, например https://api.example.com, без пути.",
     "Enter password": "Введите пароль",
     "Enter password (8-20 characters)": "Введите пароль (8-20 символов)",
+    "Enter password (8–128 characters)": "Введите пароль (от 8 до 128 символов)",
     "Enter password (min 8 characters)": "Введите пароль (минимум 8 символов)",
     "Enter quota in {{currency}}": "Введите квоту в {{currency}}",
     "Enter quota in tokens": "Введите квоту в токенах",

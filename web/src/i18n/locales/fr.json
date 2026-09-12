@@ -2201,6 +2201,7 @@
     "Enter only a top-level callback domain, for example https://api.example.com, without any path.": "Saisissez uniquement le domaine de callback principal, par exemple https://api.example.com, sans chemin.",
     "Enter password": "Saisir le mot de passe",
     "Enter password (8-20 characters)": "Saisir le mot de passe (8-20 caractères)",
+    "Enter password (8–128 characters)": "Saisissez le mot de passe (8 à 128 caractères)",
     "Enter password (min 8 characters)": "Entrez le mot de passe (min. 8 caractères)",
     "Enter quota in {{currency}}": "Saisir le quota en {{currency}}",
     "Enter quota in tokens": "Saisir le quota en tokens",

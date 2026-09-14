@@ -87,7 +87,7 @@ func GetOptions(c *gin.Context) {
 	optionValues := make(map[string]string)
 	common.OptionMapRWMutex.Lock()
 	for k, v := range common.OptionMap {
-		if k == "theme.frontend" || k == "billing_setting.billing_mode" || k == "billing_setting.billing_expr" {
+		if k == "theme.frontend" || k == "billing_setting.billing_mode" || k == "billing_setting.billing_expr" || k == "billing_setting.image_billing_rules" {
 			continue
 		}
 		value := common.Interface2String(v)
@@ -371,14 +371,8 @@ func UpdateOption(c *gin.Context) {
 			return
 		}
 	case "billing_setting.image_billing_rules":
-		err = billing_setting.UpdateImageBillingRulesByJSONString(option.Value.(string))
-		if err != nil {
-			c.JSON(http.StatusOK, gin.H{
-				"success": false,
-				"message": "图片请求参数倍率规则设置失败: " + err.Error(),
-			})
-			return
-		}
+		common.ApiErrorMsg(c, "图片计费规则已移除，请使用计费表达式和请求规则配置图片价格")
+		return
 	case "ModelRequestRateLimitGroup":
 		err = setting.CheckModelRequestRateLimitGroup(option.Value.(string))
 		if err != nil {

@@ -93,12 +93,6 @@ import { usePricingPreferencesStore } from '@/stores/pricing-preferences-store'
 import { useSystemConfigStore } from '@/stores/system-config-store'
 
 import {
-  ImageBillingRuleEditor,
-  formatImageBillingRule,
-  isLikelyImageModelName,
-  parseImageBillingRuleJson,
-} from './image-billing-rule-editor'
-import {
   EMPTY_LANE_ENABLED,
   EMPTY_LANE_PRICES,
   buildPreviewRows,
@@ -241,7 +235,6 @@ export const ModelPricingEditorPanel = forwardRef<
     meta: { errorToast: false },
   })
   const [requestRuleExpr, setRequestRuleExpr] = useState('')
-  const [imageBillingRuleJson, setImageBillingRuleJson] = useState('')
   const [pluginExpressions, setPluginExpressions] = useState<
     Record<string, string>
   >({})
@@ -377,7 +370,6 @@ export const ModelPricingEditorPanel = forwardRef<
       setPricingMode(initialPricingMode)
       setBillingExpr(initialBillingExpr)
       setRequestRuleExpr(editData.requestRuleExpr || '')
-      setImageBillingRuleJson(formatImageBillingRule(editData.imageBillingRule))
     } else {
       form.reset({
         name: '',
@@ -393,7 +385,6 @@ export const ModelPricingEditorPanel = forwardRef<
       setPricingMode('tiered_expr')
       setBillingExpr(DEFAULT_TOKEN_BILLING_EXPR)
       setRequestRuleExpr('')
-      setImageBillingRuleJson('')
     }
 
     setPromptPrice(nextLaneState.promptPrice)
@@ -572,7 +563,6 @@ export const ModelPricingEditorPanel = forwardRef<
       pricingMode,
       resolvedBillingExpr,
       requestRuleExpr,
-      imageBillingRuleJson,
       previewLanes.promptPrice,
       previewLanes.prices,
       previewLanes.enabled,
@@ -583,7 +573,6 @@ export const ModelPricingEditorPanel = forwardRef<
     )
   }, [
     resolvedBillingExpr,
-    imageBillingRuleJson,
     laneEnabled,
     lanePrices,
     pricingMode,
@@ -711,24 +700,11 @@ export const ModelPricingEditorPanel = forwardRef<
         data.requestRuleExpr = requestRuleExpr
       }
 
-      if (pricingMode === 'per-request' && imageBillingRuleJson.trim()) {
-        try {
-          data.imageBillingRule =
-            parseImageBillingRuleJson(imageBillingRuleJson)
-        } catch {
-          form.setError('price', {
-            message: t('Invalid image billing JSON.'),
-          })
-          return null
-        }
-      }
-
       return data
     },
     [
       billingExpr,
       form,
-      imageBillingRuleJson,
       pricingMode,
       requestRuleExpr,
       resolvedBillingExpr,
@@ -738,11 +714,6 @@ export const ModelPricingEditorPanel = forwardRef<
       pluginVariants,
     ]
   )
-
-  const showImageBillingRuleEditor =
-    pricingMode === 'per-request' &&
-    (Boolean(imageBillingRuleJson.trim()) ||
-      isLikelyImageModelName(watchedValues.name))
 
   const convertPricing = async () => {
     if (
@@ -1166,20 +1137,6 @@ export const ModelPricingEditorPanel = forwardRef<
                             </FormItem>
                           )}
                         />
-                        {showImageBillingRuleEditor && (
-                          <Field>
-                            <FieldLabel>{t('Image billing rules')}</FieldLabel>
-                            <FieldDescription>
-                              {t(
-                                'Optional multipliers for image request parameters such as size, quality, or resolution tiers.'
-                              )}
-                            </FieldDescription>
-                            <ImageBillingRuleEditor
-                              value={imageBillingRuleJson}
-                              onChange={setImageBillingRuleJson}
-                            />
-                          </Field>
-                        )}
                       </FieldGroup>
                     </TabsContent>
 

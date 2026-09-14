@@ -40,7 +40,6 @@ export const PRICING_KEYS = [
   'AudioCompletionRatio',
   'billing_setting.billing_mode',
   'billing_setting.billing_expr',
-  'billing_setting.image_billing_rules',
   'billing_setting.plugin_billing_expr',
 ] as const
 export type PricingKey = (typeof PRICING_KEYS)[number]
@@ -57,7 +56,6 @@ export type PricingOptions = Record<PricingKey, string>
 type ModelPricingDefaults = {
   BillingMode: string
   BillingExpr: string
-  ImageBillingRules: string
   PluginBillingExpr?: string
 }
 
@@ -76,9 +74,6 @@ export function mergeModelPricingDefaults<T extends ModelPricingDefaults>(
       options['billing_setting.billing_mode'] ?? defaults.BillingMode,
     BillingExpr:
       options['billing_setting.billing_expr'] ?? defaults.BillingExpr,
-    ImageBillingRules:
-      options['billing_setting.image_billing_rules'] ??
-      defaults.ImageBillingRules,
   } as T & Partial<ModelPricingDefaults>
   if (
     options['billing_setting.plugin_billing_expr'] !== undefined ||
@@ -174,9 +169,6 @@ export function pricingOptions(
       let value = values[key]
       if (key === 'billing_setting.billing_mode') value ??= values.BillingMode
       if (key === 'billing_setting.billing_expr') value ??= values.BillingExpr
-      if (key === 'billing_setting.image_billing_rules') {
-        value ??= values.ImageBillingRules
-      }
       if (key === 'billing_setting.plugin_billing_expr') {
         value ??= values.PluginBillingExpr
       }
@@ -197,7 +189,6 @@ export function pricingRows(options: PricingOptions): ModelPricingSnapshot[] {
     audioCompletionRatio: options.AudioCompletionRatio,
     billingMode: options['billing_setting.billing_mode'],
     billingExpr: options['billing_setting.billing_expr'],
-    imageBillingRules: options['billing_setting.image_billing_rules'],
     pluginBillingExpr: options['billing_setting.plugin_billing_expr'],
   })
 }

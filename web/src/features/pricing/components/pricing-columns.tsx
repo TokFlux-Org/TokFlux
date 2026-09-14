@@ -249,9 +249,6 @@ export function usePricingColumns(
             <span className='font-mono text-sm tabular-nums'>{price}</span>
             <div className='text-muted-foreground/50 text-[10px]'>
               {t('Base Price')} / {t('request')}
-              {model.image_billing_rule?.enabled && (
-                <span> · {t('image parameters')}</span>
-              )}
             </div>
           </div>
         )

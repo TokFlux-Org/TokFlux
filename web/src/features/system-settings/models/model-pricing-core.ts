@@ -28,8 +28,8 @@ import type {
   LegacyBillingDetails,
 } from '@/features/model-pricing/pricing'
 import { combineBillingExpr } from '@/features/pricing/lib/billing-expr'
-import type { ImageBillingRule } from './image-billing-rule-editor'
 import { formatBillingCondition } from '@/features/pricing/lib/billing-expression/condition-display'
+
 import { formatPricingNumber } from './pricing-format'
 
 export const createModelPricingSchema = (t: (key: string) => string) =>
@@ -73,7 +73,6 @@ export type ModelRatioData = {
   billingMode?: PricingMode
   billingExpr?: string
   requestRuleExpr?: string
-  imageBillingRule?: ImageBillingRule
 }
 
 export type PreviewRow = {
@@ -223,7 +222,6 @@ export function buildPreviewRows(
   mode: PricingMode,
   billingExpr: string,
   requestRuleExpr: string,
-  imageBillingRuleJson: string,
   promptPrice: string,
   lanePrices: Record<LaneKey, string>,
   laneEnabled: Record<LaneKey, boolean>,
@@ -259,14 +257,6 @@ export function buildPreviewRows(
       },
       ...pricingAdjustmentRows(billingDetails, t),
     ]
-    if (imageBillingRuleJson.trim()) {
-      rows.push({
-        key: 'imageBillingRule',
-        label: t('Image billing rules'),
-        value: imageBillingRuleJson,
-        multiline: true,
-      })
-    }
     return rows
   }
 

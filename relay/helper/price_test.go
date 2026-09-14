@@ -8,7 +8,6 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/setting/billing_setting"
@@ -318,18 +317,6 @@ func TestModelPriceHelperRequestBillingRatiosOnlyApplyToFixedPrice(t *testing.T)
 	require.Equal(t, common.QuotaClampOverflow, clamp.Kind)
 	require.Nil(t, info.Billing)
 
-	// The request metadata and image-rule pass can both observe the same image
-	// count. Recomputing from the frozen base price must apply that ratio once.
-	ctx, info = newInfo("fixed-image-price")
-	info.RelayMode = relayconstant.RelayModeImagesGenerations
-	priceData, err = ModelPriceHelper(ctx, info, 0, &types.TokenCountMeta{
-		BillingRatios: map[string]float64{"n": 3},
-	})
-	require.NoError(t, err)
-	require.Equal(t, 60_000, priceData.QuotaToPreConsume)
-	n := uint(3)
-	require.NoError(t, ApplyImageBilling(ctx, info, &dto.ImageRequest{N: &n}))
-	require.Equal(t, 60_000, info.PriceData.QuotaToPreConsume)
 }
 
 // Pricing identity is resolved once in ModelPriceHelper via the candidate

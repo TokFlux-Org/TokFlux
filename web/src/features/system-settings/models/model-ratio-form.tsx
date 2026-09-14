@@ -62,7 +62,6 @@ type ModelFormValues = {
   ExposeRatioEnabled: boolean
   BillingMode: string
   BillingExpr: string
-  ImageBillingRules: string
   PluginBillingExpr: string
 }
 
@@ -85,7 +84,6 @@ type ModelJsonFieldName =
   | 'ImageRatio'
   | 'AudioRatio'
   | 'AudioCompletionRatio'
-  | 'ImageBillingRules'
 
 const modelJsonFields: Array<{
   name: ModelJsonFieldName
@@ -135,11 +133,6 @@ const modelJsonFields: Array<{
     name: 'AudioCompletionRatio',
     labelKey: 'Audio completion ratio',
     descriptionKey: 'Ratio applied to audio completions for streaming models.',
-  },
-  {
-    name: 'ImageBillingRules',
-    labelKey: 'Image billing rules',
-    descriptionKey: 'JSON map of model → image request parameter billing rule.',
   },
 ]
 
@@ -324,7 +317,6 @@ export const ModelRatioForm = memo(function ModelRatioForm({
               savedAudioCompletionRatio={savedValues.AudioCompletionRatio}
               savedBillingMode={savedValues.BillingMode}
               savedBillingExpr={savedValues.BillingExpr}
-              savedImageBillingRules={savedValues.ImageBillingRules}
               savedPluginBillingExpr={savedValues.PluginBillingExpr}
               modelPrice={form.watch('ModelPrice')}
               modelRatio={form.watch('ModelRatio')}
@@ -336,7 +328,6 @@ export const ModelRatioForm = memo(function ModelRatioForm({
               audioCompletionRatio={form.watch('AudioCompletionRatio')}
               billingMode={form.watch('BillingMode')}
               billingExpr={form.watch('BillingExpr')}
-              imageBillingRules={form.watch('ImageBillingRules')}
               pluginBillingExpr={form.watch('PluginBillingExpr')}
               candidateModelNames={
                 isUnsetVariant ? enabledModelsQuery.data?.data : undefined
@@ -351,7 +342,6 @@ export const ModelRatioForm = memo(function ModelRatioForm({
                 const fieldMap: Record<string, keyof ModelFormValues> = {
                   'billing_setting.billing_mode': 'BillingMode',
                   'billing_setting.billing_expr': 'BillingExpr',
-                  'billing_setting.image_billing_rules': 'ImageBillingRules',
                   'billing_setting.plugin_billing_expr': 'PluginBillingExpr',
                 }
                 const formField =

@@ -34,7 +34,6 @@ describe('shared model pricing', () => {
       ModelPrice: '{}',
       BillingMode: '{}',
       BillingExpr: '{}',
-      ImageBillingRules: '{"gpt-image-2":{"enabled":true}}',
     }
 
     expect(

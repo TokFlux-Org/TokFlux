@@ -20,7 +20,6 @@ import { splitBillingExprAndRequestRules } from '@/features/pricing/lib/billing-
 import { splitPluginBillingExprKey } from '@/features/pricing/lib/plugin-pricing'
 
 import { safeJsonParse } from '../utils/json-parser'
-import type { ImageBillingRule } from './image-billing-rule-editor'
 import { formatPricingNumber } from './pricing-format'
 
 export type ModelPricingSnapshotInput = {
@@ -34,7 +33,6 @@ export type ModelPricingSnapshotInput = {
   audioCompletionRatio: string
   billingMode: string
   billingExpr: string
-  imageBillingRules: string
   pluginBillingExpr?: string
 }
 
@@ -52,7 +50,6 @@ export type ModelPricingSnapshot = {
   billingMode?: string
   billingExpr?: string
   requestRuleExpr?: string
-  imageBillingRule?: ImageBillingRule
   hasConflict: boolean
 }
 
@@ -122,9 +119,7 @@ export const getPriceSummary = (
     const base = row.price
       ? `$${row.price} / ${t('request')}`
       : t('Unset price')
-    return row.imageBillingRule?.enabled
-      ? `${base} · ${t('Image rules')}`
-      : base
+    return base
   }
 
   const inputPrice = ratioToPrice(row.ratio)
@@ -143,9 +138,7 @@ export const getPriceDetail = (
       : t('Expression based')
   }
   if (row.billingMode === 'per-request') {
-    return row.imageBillingRule?.enabled
-      ? t('Fixed request price with image parameter multipliers')
-      : t('Fixed request price')
+    return t('Fixed request price')
   }
 
   const inputPrice = ratioToPrice(row.ratio)
@@ -176,7 +169,6 @@ export const buildModelSnapshots = ({
   audioCompletionRatio,
   billingMode,
   billingExpr,
-  imageBillingRules,
   pluginBillingExpr = '{}',
 }: ModelPricingSnapshotInput): ModelPricingSnapshot[] => {
   const priceMap = safeJsonParse<Record<string, number>>(modelPrice, {
@@ -219,14 +211,6 @@ export const buildModelSnapshots = ({
     fallback: {},
     context: 'billing expression',
   })
-  const imageBillingRulesMap = safeJsonParse<Record<string, ImageBillingRule>>(
-    imageBillingRules,
-    {
-      fallback: {},
-      context: 'image billing rules',
-    }
-  )
-
   const pluginExprMap = safeJsonParse<Record<string, string>>(
     pluginBillingExpr,
     { fallback: {}, context: 'plugin billing expressions' }
@@ -253,7 +237,6 @@ export const buildModelSnapshots = ({
     ...Object.keys(audioCompletionMap),
     ...Object.keys(billingModeMap),
     ...Object.keys(billingExprMap),
-    ...Object.keys(imageBillingRulesMap),
   ])
 
   return [...modelNames].map((name) => {
@@ -265,8 +248,6 @@ export const buildModelSnapshots = ({
     const image = imageMap[name]?.toString() || ''
     const audio = audioMap[name]?.toString() || ''
     const audioCompletion = audioCompletionMap[name]?.toString() || ''
-    const imageBillingRule = imageBillingRulesMap[name]
-
     const modeForModel = billingModeMap[name]
     if (modeForModel === 'tiered_expr') {
       const fullExpr = billingExprMap[name] || ''
@@ -286,13 +267,12 @@ export const buildModelSnapshots = ({
         imageRatio: image,
         audioRatio: audio,
         audioCompletionRatio: audioCompletion,
-        imageBillingRule,
         hasConflict: false,
       }
     }
 
     const billingMode =
-      modeForModel === 'per-request' || price !== '' || imageBillingRule
+      modeForModel === 'per-request' || price !== ''
         ? 'per-request'
         : 'per-token'
 
@@ -308,9 +288,8 @@ export const buildModelSnapshots = ({
       audioRatio: audio,
       audioCompletionRatio: audioCompletion,
       billingMode,
-      imageBillingRule,
       hasConflict:
-        (price !== '' || imageBillingRule !== undefined) &&
+        price !== '' &&
         (ratio !== '' ||
           completion !== '' ||
           cache !== '' ||
@@ -336,7 +315,6 @@ export const getSnapshotSignature = (snapshot?: ModelPricingSnapshot) => {
     billingMode: snapshot.billingMode || 'per-token',
     billingExpr: snapshot.billingExpr || '',
     requestRuleExpr: snapshot.requestRuleExpr || '',
-    imageBillingRule: snapshot.imageBillingRule || null,
     pluginBillingExpr: Object.entries(snapshot.pluginBillingExpr ?? {}).sort(
       ([a], [b]) => a.localeCompare(b)
     ),

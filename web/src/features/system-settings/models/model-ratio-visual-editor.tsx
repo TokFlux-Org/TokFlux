@@ -57,7 +57,6 @@ import { splitPluginBillingExprKey } from '@/features/pricing/lib/plugin-pricing
 import { useMediaQuery } from '@/hooks'
 
 import { safeJsonParse } from '../utils/json-parser'
-import type { ImageBillingRule } from './image-billing-rule-editor'
 import type { PricingMode } from './model-pricing-core'
 import {
   ModelPricingEditorPanel,
@@ -87,7 +86,6 @@ type ModelRatioVisualEditorProps = {
   savedAudioCompletionRatio: string
   savedBillingMode: string
   savedBillingExpr: string
-  savedImageBillingRules: string
   savedPluginBillingExpr?: string
   modelPrice: string
   modelRatio: string
@@ -99,7 +97,6 @@ type ModelRatioVisualEditorProps = {
   audioCompletionRatio: string
   billingMode: string
   billingExpr: string
-  imageBillingRules: string
   pluginBillingExpr?: string
   candidateModelNames?: string[]
   candidateModelsLoading?: boolean
@@ -130,7 +127,6 @@ const ModelRatioVisualEditorComponent = forwardRef<
     savedAudioCompletionRatio,
     savedBillingMode,
     savedBillingExpr,
-    savedImageBillingRules,
     savedPluginBillingExpr = '{}',
     modelPrice,
     modelRatio,
@@ -142,7 +138,6 @@ const ModelRatioVisualEditorComponent = forwardRef<
     audioCompletionRatio,
     billingMode,
     billingExpr,
-    imageBillingRules,
     pluginBillingExpr = '{}',
     candidateModelNames,
     candidateModelsLoading,
@@ -237,7 +232,6 @@ const ModelRatioVisualEditorComponent = forwardRef<
       audioCompletionRatio: savedAudioCompletionRatio,
       billingMode: savedBillingMode,
       billingExpr: savedBillingExpr,
-      imageBillingRules: savedImageBillingRules,
       pluginBillingExpr: savedPluginBillingExpr,
     })
     const draftRows = buildModelSnapshots({
@@ -251,7 +245,6 @@ const ModelRatioVisualEditorComponent = forwardRef<
       audioCompletionRatio,
       billingMode,
       billingExpr,
-      imageBillingRules,
       pluginBillingExpr,
     })
 
@@ -296,7 +289,6 @@ const ModelRatioVisualEditorComponent = forwardRef<
     savedAudioCompletionRatio,
     savedBillingMode,
     savedBillingExpr,
-    savedImageBillingRules,
     savedPluginBillingExpr,
     modelPrice,
     modelRatio,
@@ -308,7 +300,6 @@ const ModelRatioVisualEditorComponent = forwardRef<
     audioCompletionRatio,
     billingMode,
     billingExpr,
-    imageBillingRules,
     pluginBillingExpr,
   ])
 
@@ -430,10 +421,6 @@ const ModelRatioVisualEditorComponent = forwardRef<
         billingExpr,
         { fallback: {}, silent: true }
       )
-      const imageBillingRulesMap = safeJsonParse<
-        Record<string, ImageBillingRule>
-      >(imageBillingRules, { fallback: {}, silent: true })
-
       delete priceMap[name]
       delete ratioMap[name]
       delete cacheMap[name]
@@ -444,7 +431,6 @@ const ModelRatioVisualEditorComponent = forwardRef<
       delete audioCompletionMap[name]
       delete billingModeMap[name]
       delete billingExprMap[name]
-      delete imageBillingRulesMap[name]
       const pluginExprMap = safeJsonParse<Record<string, string>>(
         pluginBillingExpr,
         { fallback: {} }
@@ -478,11 +464,6 @@ const ModelRatioVisualEditorComponent = forwardRef<
         'billing_setting.billing_expr',
         JSON.stringify(billingExprMap, null, 2)
       )
-      onChange(
-        'billing_setting.image_billing_rules',
-        JSON.stringify(imageBillingRulesMap, null, 2)
-      )
-
       if (editData?.name === name) {
         setEditData(null)
         setEditorOpen(false)
@@ -500,7 +481,6 @@ const ModelRatioVisualEditorComponent = forwardRef<
       audioCompletionRatio,
       billingMode,
       billingExpr,
-      imageBillingRules,
       pluginBillingExpr,
       onChange,
       editData,
@@ -565,25 +545,9 @@ const ModelRatioVisualEditorComponent = forwardRef<
         AudioCompletionRatio: audioCompletionRatio,
         BillingMode: billingMode,
         BillingExpr: billingExpr,
-        ImageBillingRules: imageBillingRules,
         PluginBillingExpr: pluginBillingExpr,
       })
       const updated = applyPricingDraft(options, data, targetNames)
-      const imageBillingRulesMap = safeJsonParse<Record<string, ImageBillingRule>>(
-        updated['billing_setting.image_billing_rules'],
-        { fallback: {}, silent: true }
-      )
-      for (const name of targetNames) {
-        delete imageBillingRulesMap[name]
-        if (data.imageBillingRule?.enabled) {
-          imageBillingRulesMap[name] = data.imageBillingRule
-        }
-      }
-      updated['billing_setting.image_billing_rules'] = JSON.stringify(
-        imageBillingRulesMap,
-        null,
-        2
-      )
       for (const [key, value] of Object.entries(updated)) onChange(key, value)
     },
     [
@@ -597,7 +561,6 @@ const ModelRatioVisualEditorComponent = forwardRef<
       audioCompletionRatio,
       billingMode,
       billingExpr,
-      imageBillingRules,
       pluginBillingExpr,
       onChange,
     ]
@@ -873,8 +836,6 @@ export const ModelRatioVisualEditor = memo(
       prevProps.audioCompletionRatio === nextProps.audioCompletionRatio &&
       prevProps.billingMode === nextProps.billingMode &&
       prevProps.billingExpr === nextProps.billingExpr &&
-      prevProps.savedImageBillingRules === nextProps.savedImageBillingRules &&
-      prevProps.imageBillingRules === nextProps.imageBillingRules &&
       prevProps.pluginBillingExpr === nextProps.pluginBillingExpr &&
       prevProps.candidateModelNames === nextProps.candidateModelNames &&
       prevProps.candidateModelsLoading === nextProps.candidateModelsLoading &&

@@ -22,26 +22,22 @@ const (
 	BillingModeTieredExpr   = "tiered_expr"
 	BillingModeField        = "billing_mode"
 	BillingExprField        = "billing_expr"
-	ImageBillingRulesField  = "image_billing_rules"
 	PluginBillingExprOption = "billing_setting.plugin_billing_expr"
 	maxTaskExprSmokeTests   = 64
 )
 
 // BillingSetting is managed by config.GlobalConfig.Register.
 // DB keys: billing_setting.billing_mode, billing_setting.billing_expr,
-// billing_setting.image_billing_rules
 // billing_setting.plugin_billing_expr
 type BillingSetting struct {
-	BillingMode       map[string]string           `json:"billing_mode"`
-	BillingExpr       map[string]string           `json:"billing_expr"`
-	ImageBillingRules map[string]ImageBillingRule `json:"image_billing_rules"`
-	PluginBillingExpr map[string]string           `json:"plugin_billing_expr"`
+	BillingMode       map[string]string `json:"billing_mode"`
+	BillingExpr       map[string]string `json:"billing_expr"`
+	PluginBillingExpr map[string]string `json:"plugin_billing_expr"`
 }
 
 var billingSetting = BillingSetting{
 	BillingMode:       make(map[string]string),
 	BillingExpr:       make(map[string]string),
-	ImageBillingRules: make(map[string]ImageBillingRule),
 	PluginBillingExpr: make(map[string]string),
 }
 
@@ -182,9 +178,6 @@ func GetPricingSyncData(base map[string]any) map[string]any {
 	}
 	if exprs := GetBillingExprCopy(); len(exprs) > 0 {
 		extra[BillingExprField] = exprs
-	}
-	if rules := GetImageBillingRulesCopy(); len(rules) > 0 {
-		extra[ImageBillingRulesField] = rules
 	}
 	return lo.Assign(base, extra)
 }

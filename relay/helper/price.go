@@ -138,7 +138,7 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 			info.ImageQuotaBeforeGroup = float64(preConsumedTokens) * modelRatio
 		}
 	} else {
-		if meta.ImagePriceRatio != 0 && !billing_setting.HasImageBillingRule(info.OriginModelName) {
+		if meta.ImagePriceRatio != 0 {
 			modelPrice = modelPrice * meta.ImagePriceRatio
 		}
 		if _, image := info.Request.(*dto.ImageRequest); image {

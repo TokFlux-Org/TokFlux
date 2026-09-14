@@ -142,7 +142,6 @@ export function ModelPricingPanel(props: {
     current.billingMode ?? 'per-token',
     '',
     '',
-    '',
     currentLanes.promptPrice,
     currentLanes.prices,
     currentLanes.enabled,

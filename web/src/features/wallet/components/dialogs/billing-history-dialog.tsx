@@ -122,7 +122,7 @@ export function BillingHistoryDialog({
             ? t('View your topup transaction records and payment history')
             : t('Showing your top-ups from the last 30 days.')
         }
-        contentClassName='flex max-h-[calc(100dvh-2rem)] flex-col max-sm:w-screen max-sm:max-w-none max-sm:rounded-none max-sm:p-4 sm:max-w-4xl'
+        contentClassName='flex max-h-(--dialog-available-height) flex-col max-sm:w-screen max-sm:max-w-none max-sm:rounded-none max-sm:p-4 sm:max-w-4xl'
         contentHeight='auto'
         bodyClassName='space-y-3'
       >

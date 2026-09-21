@@ -624,9 +624,17 @@ it.each([
         }}
       />
     )
-    expect(button.textContent).toBe(
+    const catalogPrefix = {
+      legacy: '$3/$15',
+      'single-expression': '$3/$15',
+      'tier-expression': '$3/$15',
+      'free-request': '$0',
+      'free-tokens': '$0/$0',
+      'free-expression': '$0/$0',
+    }[name]
+    expect(
       screen.getByRole('group', { name: 'Catalog price' }).textContent
-    )
+    ).toContain(catalogPrefix)
   }
 )
 

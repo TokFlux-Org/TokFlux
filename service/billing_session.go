@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -12,7 +13,9 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
@@ -329,7 +332,13 @@ func (s *BillingSession) Reserve(targetQuota int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.settled || s.refunded || s.refunding || s.trusted {
+	alreadyDispatched := s.dispatchOccurred
+	imageRequest := false
+	if s.relayInfo != nil {
+		_, imageRequest = s.relayInfo.Request.(*dto.ImageRequest)
+		imageRequest = imageRequest || s.relayInfo.ImageRequestCount > 0
+	}
+	if s.settled || s.refunded || s.trusted && !imageRequest || targetQuota <= s.preConsumedQuota {
 		return nil
 	}
 
@@ -359,12 +368,29 @@ func (s *BillingSession) Reserve(targetQuota int) error {
 		delta,
 		tokenRequired,
 		true,
-		false,
+		alreadyDispatched,
 	)
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeUpdateDataError, types.ErrOptionWithSkipRetry())
 	}
 	s.pendingDispatch = append(s.pendingDispatch, adjustment)
+	if imageRequest {
+		s.trusted = false
+	}
+	if alreadyDispatched {
+		if err := s.applyReservationLocked(adjustment); err != nil {
+			s.pendingDispatch = s.pendingDispatch[:len(s.pendingDispatch)-1]
+			return err
+		}
+		s.pendingDispatch = s.pendingDispatch[:len(s.pendingDispatch)-1]
+	} else if imageRequest {
+		// Image overrides are resolved immediately before the outbound request.
+		// Authorize the initial and quantity-adjusted reservations together so
+		// insufficient wallet/token balances fail before the provider call.
+		if err := s.confirmDispatchLocked(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -408,6 +434,7 @@ func (s *BillingSession) confirmDispatchLocked() error {
 	if err := model.MarkBillingAdjustmentsDispatchConfirmed(operationKeys); err != nil {
 		return types.NewError(err, types.ErrorCodeUpdateDataError, types.ErrOptionWithSkipRetry())
 	}
+	s.dispatchOccurred = true
 	s.initialReservation = nil
 	s.pendingDispatch = nil
 	return nil
@@ -679,8 +706,8 @@ func (s *BillingSession) shouldTrust(c *gin.Context) bool {
 		return false
 	}
 
-	trustQuota := common.GetTrustQuota()
-	if trustQuota <= 0 {
+	trustQuota := operation_setting.GetQuotaSetting().TrustQuotaUSD * common.QuotaPerUnit
+	if trustQuota <= 0 || math.IsNaN(trustQuota) || math.IsInf(trustQuota, 0) {
 		return false
 	}
 
@@ -688,7 +715,7 @@ func (s *BillingSession) shouldTrust(c *gin.Context) bool {
 	tokenTrusted := s.relayInfo.TokenUnlimited
 	if !tokenTrusted {
 		tokenQuota := c.GetInt("token_quota")
-		tokenTrusted = tokenQuota > trustQuota
+		tokenTrusted = float64(tokenQuota) > trustQuota
 	}
 	if !tokenTrusted {
 		return false
@@ -696,7 +723,7 @@ func (s *BillingSession) shouldTrust(c *gin.Context) bool {
 
 	switch s.funding.Source() {
 	case BillingSourceWallet:
-		return s.relayInfo.UserQuota > trustQuota
+		return float64(s.relayInfo.UserQuota) > trustQuota
 	case BillingSourceSubscription:
 		// 订阅不能启用信任旁路。原因：
 		// 1. PreConsumeUserSubscription 要求 amount>0 来创建预扣记录并锁定订阅

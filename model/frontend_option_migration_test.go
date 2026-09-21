@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -44,7 +43,7 @@ func requireOptionMissing(t *testing.T, db *gorm.DB, key string) {
 func TestMigrateRetiredFrontendOptionsMigratesValidValuesIdempotently(t *testing.T) {
 	db := useFrontendOptionMigrationDB(t)
 	legacy := []Option{
-		{Key: "theme.frontend", Value: "classic"},
+		{Key: retiredThemeOptionKey, Value: "classic"},
 		{Key: "ApiInfo", Value: `[{"url":"https://api.example.com","route":"primary","description":"API","color":"blue"}]`},
 		{Key: "Announcements", Value: `[{"content":"maintenance","publishDate":"2026-07-20T00:00:00Z","type":"warning"}]`},
 		{Key: "FAQ", Value: `[{"title":"Question","content":"Answer"}]`},
@@ -54,7 +53,7 @@ func TestMigrateRetiredFrontendOptionsMigratesValidValuesIdempotently(t *testing
 	require.NoError(t, db.Create(&legacy).Error)
 
 	require.NoError(t, MigrateRetiredFrontendOptions())
-	assert.Equal(t, "classic", requireOptionValue(t, db, "theme.frontend"))
+	assert.Equal(t, "default", requireOptionValue(t, db, retiredThemeOptionKey))
 	assert.JSONEq(t, legacy[1].Value, requireOptionValue(t, db, "console_setting.api_info"))
 	assert.Equal(t, legacy[2].Value, requireOptionValue(t, db, "console_setting.announcements"))
 	assert.JSONEq(t, `[{"question":"Question","answer":"Answer"}]`, requireOptionValue(t, db, "console_setting.faq"))
@@ -168,22 +167,14 @@ func TestMigrateRetiredFrontendOptionsKeepsEmptyAuthoritativeTargets(t *testing.
 	}
 }
 
-func TestThemeOptionIsPersistedAndPublished(t *testing.T) {
+func TestRetiredThemeOptionIsPersistedButNotPublished(t *testing.T) {
 	db := useFrontendOptionMigrationDB(t)
 	previousMap := common.OptionMap
-	previousTheme := system_setting.GetThemeSettings().Frontend
-	previousRuntimeTheme := common.GetTheme()
-	t.Cleanup(func() {
-		common.OptionMap = previousMap
-		system_setting.GetThemeSettings().Frontend = previousTheme
-		common.SetTheme(previousRuntimeTheme)
-	})
+	t.Cleanup(func() { common.OptionMap = previousMap })
 	common.OptionMap = map[string]string{}
-	system_setting.GetThemeSettings().Frontend = "classic"
-	common.SetTheme("classic")
 
-	require.NoError(t, UpdateOption("theme.frontend", "default"))
-	assert.Equal(t, "default", requireOptionValue(t, db, "theme.frontend"))
-	assert.Equal(t, "default", common.OptionMap["theme.frontend"])
-	assert.Equal(t, "default", common.GetTheme())
+	require.NoError(t, UpdateOption(retiredThemeOptionKey, "default"))
+	assert.Equal(t, "default", requireOptionValue(t, db, retiredThemeOptionKey))
+	_, published := common.OptionMap[retiredThemeOptionKey]
+	assert.False(t, published)
 }

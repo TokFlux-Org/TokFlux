@@ -10,6 +10,7 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	relaytypes "github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	hosttypes "github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
@@ -27,7 +28,9 @@ func TestRealtimeBillingReservesCumulativeUsageAndSettlesOnceAfterRefundHold(t *
 		tokenID  = 705
 		tokenKey = "realtime-regression-token"
 	)
-	startingQuota := common.GetTrustQuota() + 100
+	trustQuota, err := common.QuotaFromFloatStrict(operation_setting.GetQuotaSetting().TrustQuotaUSD * common.QuotaPerUnit)
+	require.NoError(t, err)
+	startingQuota := trustQuota + 100
 	seedUser(t, userID, startingQuota)
 	seedToken(t, tokenID, userID, tokenKey, startingQuota)
 

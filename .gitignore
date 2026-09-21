@@ -12,8 +12,7 @@ tmp
 *.db-shm
 *.db-wal
 logs
-web/default/dist
-web/classic/dist
+web/dist
 web/node_modules
 .env
 one-api

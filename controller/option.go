@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -12,7 +13,6 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/pkg/jsplugin"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/billing_setting"
@@ -87,7 +87,7 @@ func GetOptions(c *gin.Context) {
 	optionValues := make(map[string]string)
 	common.OptionMapRWMutex.Lock()
 	for k, v := range common.OptionMap {
-		if k == "theme.frontend" || k == "billing_setting.billing_mode" || k == "billing_setting.billing_expr" {
+		if k == "theme.frontend" || k == "billing_setting.billing_mode" || k == "billing_setting.billing_expr" || k == "billing_setting.image_billing_rules" {
 			continue
 		}
 		value := common.Interface2String(v)
@@ -135,6 +135,50 @@ func GetOptions(c *gin.Context) {
 type OptionUpdateRequest struct {
 	Key   string `json:"key"`
 	Value any    `json:"value"`
+}
+
+func UpdatePasskeyDomains(c *gin.Context) {
+	var request struct {
+		RPID                *string `json:"rp_id"`
+		LegacyRPIDs         *string `json:"legacy_rp_ids"`
+		Origins             *string `json:"origins"`
+		Preview             bool    `json:"preview"`
+		RemovalConfirmation string  `json:"removal_confirmation"`
+	}
+	if err := common.DecodeJson(c.Request.Body, &request); err != nil || request.RPID == nil || request.LegacyRPIDs == nil || request.Origins == nil {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+	change, err := model.UpdatePasskeyDomainOptions(map[string]string{
+		"passkey.rp_id": *request.RPID, "passkey.legacy_rp_ids": *request.LegacyRPIDs, "passkey.origins": *request.Origins,
+	}, request.Preview, request.RemovalConfirmation)
+	if err != nil {
+		writePasskeyDomainSettingsError(c, err)
+		if !request.Preview {
+			recordPasskeyDomainAudit(c, change, request.RemovalConfirmation != "", err)
+		}
+		return
+	}
+	if !request.Preview {
+		recordPasskeyDomainAudit(c, change, request.RemovalConfirmation != "", nil)
+	}
+	common.ApiSuccess(c, change)
+}
+
+func writePasskeyDomainSettingsError(c *gin.Context, err error) {
+	var removal *model.PasskeyDomainRemovalError
+	if errors.As(err, &removal) {
+		c.JSON(http.StatusConflict, gin.H{
+			"success": false, "code": "PASSKEY_RP_ID_REMOVAL_CONFIRMATION_REQUIRED",
+			"message": i18n.T(c, i18n.MsgPasskeyRPIDRemovalConfirmation), "data": removal.Change,
+		})
+		return
+	}
+	if errors.Is(err, system_setting.ErrPasskeyRPIDInvalid) {
+		writeSecurityOperationError(c, err)
+		return
+	}
+	common.ApiError(c, err)
 }
 
 func UpdateOption(c *gin.Context) {
@@ -247,10 +291,10 @@ func UpdateOption(c *gin.Context) {
 			return
 		}
 	case "theme.frontend":
-		if option.Value != "default" && option.Value != "classic" {
+		if option.Value != "default" {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
-				"message": "无效的主题值，可选值：default（新版前端）、classic（经典前端）",
+				"message": "Classic 前端已移除，主题只能设置为 default",
 			})
 			return
 		}
@@ -327,14 +371,8 @@ func UpdateOption(c *gin.Context) {
 			return
 		}
 	case "billing_setting.image_billing_rules":
-		err = billing_setting.UpdateImageBillingRulesByJSONString(option.Value.(string))
-		if err != nil {
-			c.JSON(http.StatusOK, gin.H{
-				"success": false,
-				"message": "图片请求参数倍率规则设置失败: " + err.Error(),
-			})
-			return
-		}
+		common.ApiErrorMsg(c, "图片计费规则已移除，请使用计费表达式和请求规则配置图片价格")
+		return
 	case "ModelRequestRateLimitGroup":
 		err = setting.CheckModelRequestRateLimitGroup(option.Value.(string))
 		if err != nil {
@@ -373,22 +411,39 @@ func UpdateOption(c *gin.Context) {
 			models = append(models, modelName)
 		}
 		sort.Strings(models)
-		generation := jsplugin.DefaultRegistry.Generation()
+		storedVariants := billing_setting.GetPluginBillingExprCopy()
 		for _, modelName := range models {
-			expression := expressions[modelName]
-			if plugin, ok := generation.GetByModel(modelName); ok {
-				err = billing_setting.SmokeTestTaskExpr(expression, plugin.Meta.UsageSchema)
-			} else if target, resolved := model.ResolveTaskModelAlias(generation, modelName); resolved {
-				if plugin, ok := generation.Get(target.PluginKey); ok {
-					err = billing_setting.SmokeTestTaskExpr(expression, plugin.Meta.UsageSchema)
-				} else {
-					err = billing_setting.SmokeTestExpr(expression)
+			variants := make(map[string]any)
+			for key, expression := range storedVariants {
+				if plugin, name, ok := billing_setting.SplitPluginBillingExprKey(key); ok && name == modelName {
+					variants[plugin] = expression
 				}
-			} else {
-				err = billing_setting.SmokeTestExpr(expression)
 			}
+			err = model.ValidateModelPricing(modelName, model.PricingValues{
+				"billing_setting.billing_expr":          expressions[modelName],
+				billing_setting.PluginBillingExprOption: variants,
+			})
 			if err != nil {
 				common.ApiErrorMsg(c, fmt.Sprintf("模型 %s 的计费表达式无效: %v", modelName, err))
+				return
+			}
+		}
+	case billing_setting.PluginBillingExprOption:
+		var expressions map[string]string
+		if err = common.UnmarshalJsonStr(option.Value.(string), &expressions); err != nil || expressions == nil {
+			common.ApiErrorMsg(c, "plugin billing expressions must be a JSON object")
+			return
+		}
+		for key, expression := range expressions {
+			plugin, name, valid := billing_setting.SplitPluginBillingExprKey(key)
+			if !valid {
+				common.ApiErrorMsg(c, "invalid plugin billing expression key: "+key)
+				return
+			}
+			if err = model.ValidateModelPricing(name, model.PricingValues{
+				billing_setting.PluginBillingExprOption: map[string]any{plugin: expression},
+			}); err != nil {
+				common.ApiErrorMsg(c, err.Error())
 				return
 			}
 		}
@@ -429,9 +484,24 @@ func UpdateOption(c *gin.Context) {
 			return
 		}
 	}
+	if model.IsPasskeyDomainOption(option.Key) {
+		change, updateErr := model.UpdatePasskeyDomainOptions(map[string]string{option.Key: option.Value.(string)}, false, "")
+		if updateErr != nil {
+			writePasskeyDomainSettingsError(c, updateErr)
+			recordPasskeyDomainAudit(c, change, false, updateErr)
+			return
+		}
+		recordPasskeyDomainAudit(c, change, false, nil)
+		common.ApiSuccess(c, change)
+		return
+	}
 	err = model.UpdateOption(option.Key, option.Value.(string))
 	if err != nil {
-		common.ApiError(c, err)
+		if errors.Is(err, system_setting.ErrPasskeyRPIDInvalid) {
+			writeSecurityOperationError(c, err)
+		} else {
+			common.ApiError(c, err)
+		}
 		return
 	}
 	// 出于安全考虑只记录被修改的配置项名称，不记录配置值（可能含密钥等敏感信息）。

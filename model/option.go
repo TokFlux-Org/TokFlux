@@ -198,8 +198,18 @@ func InitOptionMap() {
 }
 
 func loadOptionsFromDatabase() {
+	requestPolicyOptionMutex.Lock()
+	defer requestPolicyOptionMutex.Unlock()
+	defer func() {
+		if err := refreshRequestPolicySnapshot(); err != nil {
+			common.SysError("invalid request policy: " + err.Error())
+		}
+	}()
+	passkeyOptionMutex.Lock()
+	defer passkeyOptionMutex.Unlock()
 	options, _ := AllOption()
 	dbOptions := make(map[string]string, len(options))
+	passkeyOptions := make(map[string]string)
 	for _, option := range options {
 		// Migration markers are internal state, not runtime configuration.
 		if option.Key == removedMiMoChannelTypeMigrationKey {
@@ -209,12 +219,17 @@ func loadOptionsFromDatabase() {
 		if isLegacyOptionKey(option.Key) {
 			continue
 		}
+		if IsPasskeyDomainOption(option.Key) {
+			passkeyOptions[option.Key] = option.Value
+			continue
+		}
 		err := updateOptionMap(option.Key, option.Value)
 		if err != nil {
 			common.SysLog("failed to update option map: " + err.Error())
 		}
 	}
 	migrateLegacyOptions(dbOptions)
+	applyPasskeyDomainOptions(passkeyOptions)
 }
 
 func SyncOptions(frequency int) {
@@ -226,6 +241,9 @@ func SyncOptions(frequency int) {
 }
 
 func validateOptionValue(key string, value string) error {
+	if err := operation_setting.ValidateQuotaOption(key, value); err != nil {
+		return err
+	}
 	if key == operation_setting.ToolPriceOptionKey {
 		return operation_setting.ValidateToolPricesJSON(value)
 	}
@@ -240,6 +258,13 @@ func validateOptionValue(key string, value string) error {
 
 func UpdateOption(key string, value string) error {
 	key = normalizeLegacyOptionKey(key)
+	if IsRequestPolicyOption(key) {
+		return UpdateRequestPolicyOptions(map[string]string{key: value})
+	}
+	if IsPasskeyDomainOption(key) {
+		_, err := UpdatePasskeyDomainOptions(map[string]string{key: value}, false, "")
+		return err
+	}
 	if IsModelPricingOption(key) {
 		return UpdateModelPricingOptions(map[string]string{key: value})
 	}
@@ -288,6 +313,32 @@ func UpdateOptionsBulk(values map[string]string) error {
 		normalizedValues[normalizedKey] = value
 		normalizedSources[normalizedKey] = key
 	}
+	for key := range normalizedValues {
+		if IsPasskeyDomainOption(key) {
+			_, err := UpdatePasskeyDomainOptions(normalizedValues, false, "")
+			return err
+		}
+	}
+	var policySnapshot *RequestPolicySnapshot
+	for key := range values {
+		if IsRequestPolicyOption(key) {
+			requestPolicyOptionMutex.Lock()
+			defer requestPolicyOptionMutex.Unlock()
+			options := maps.Clone(CurrentRequestPolicy().Options)
+			for key, value := range values {
+				if IsRequestPolicyOption(key) {
+					options[key] = value
+				}
+			}
+			var err error
+			policySnapshot, err = BuildRequestPolicy(options)
+			if err != nil {
+				return err
+			}
+			break
+		}
+	}
+
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		for k, v := range normalizedValues {
 			option := Option{Key: k}
@@ -309,10 +360,20 @@ func UpdateOptionsBulk(values map[string]string) error {
 			return err
 		}
 	}
+	if policySnapshot != nil {
+		requestPolicySnapshot.Store(policySnapshot)
+	}
 	return nil
 }
 
 func updateOptionMap(key string, value string) (err error) {
+	if key == retiredThemeOptionKey {
+		common.OptionMapRWMutex.Lock()
+		delete(common.OptionMap, key)
+		common.OptionMapRWMutex.Unlock()
+		return nil
+	}
+
 	common.OptionMapRWMutex.Lock()
 	defer common.OptionMapRWMutex.Unlock()
 	common.OptionMap[key] = value
@@ -716,8 +777,6 @@ func handleConfigUpdate(key, value string) bool {
 	} else if configName == "billing_setting" {
 		InvalidatePricingCache()
 		ratio_setting.InvalidateExposedDataCache()
-	} else if configName == "theme" {
-		system_setting.UpdateAndSyncTheme()
 	} else if configName == "growth_setting" && configKey == "invite_rebate_percentage" {
 		common.InviteRebatePercentage = operation_setting.GetInviteRebatePercentage()
 		common.OptionMap["InviteRebatePercentage"] = value

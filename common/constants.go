@@ -4,9 +4,7 @@ import (
 	"crypto/tls"
 	//"os"
 	//"strconv"
-	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,47 +16,6 @@ var SystemName = "New API"
 var Footer = ""
 var Logo = ""
 var TopUpLink = ""
-
-var themeValue atomic.Value // stores string; safe for concurrent read/write
-
-func init() {
-	themeValue.Store("classic")
-}
-
-func GetTheme() string {
-	return themeValue.Load().(string)
-}
-
-// SetTheme updates the frontend theme atomically.
-func SetTheme(theme string) {
-	if theme == "default" || theme == "classic" {
-		themeValue.Store(theme)
-	}
-}
-
-// ThemeAwarePath maps dashboard routes between the two supported frontends.
-func ThemeAwarePath(path string) string {
-	if GetTheme() == "default" {
-		switch {
-		case strings.HasPrefix(path, "/console/topup"):
-			return strings.Replace(path, "/console/topup", "/wallet", 1)
-		case strings.HasPrefix(path, "/console/log"):
-			return strings.Replace(path, "/console/log", "/usage-logs", 1)
-		case strings.HasPrefix(path, "/console/personal"):
-			return strings.Replace(path, "/console/personal", "/profile", 1)
-		}
-		return path
-	}
-	switch {
-	case strings.HasPrefix(path, "/wallet"):
-		return strings.Replace(path, "/wallet", "/console/topup", 1)
-	case strings.HasPrefix(path, "/usage-logs"):
-		return strings.Replace(path, "/usage-logs", "/console/log", 1)
-	case strings.HasPrefix(path, "/profile"):
-		return strings.Replace(path, "/profile", "/console/personal", 1)
-	}
-	return path
-}
 
 // var ChatLink = ""
 // var ChatLink2 = ""
@@ -176,6 +133,9 @@ var ChannelDisableThreshold = 5.0
 var AutomaticDisableChannelEnabled = false
 var AutomaticEnableChannelEnabled = false
 var QuotaRemindThreshold = 1000
+
+// PreConsumedQuota is retained for old option clients; token reservations now
+// use quota_setting.pre_consume_multiplier and the estimated input cost.
 var PreConsumedQuota = 500
 
 var RetryTimes = 0

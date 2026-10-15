@@ -56,7 +56,9 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { formatQuota } from '@/lib/format'
+import { handleServerError } from '@/lib/handle-server-error'
 import { createIdempotencyKey } from '@/lib/idempotency'
+import { getServerMessage } from '@/lib/server-error-message'
 
 import {
   getAdminPlans,
@@ -204,16 +206,18 @@ export function UserSubscriptionsDialog(props: Props) {
         idempotency_key: idempotencyRequestRef.current.key,
       })
       if (res.success) {
-        toast.success(res.data?.message || t('Added successfully'))
+        toast.success(getServerMessage(res.data) || t('Added successfully'))
         setSelectedPlanId('')
         setGrantAction(null)
         setGrantReason('')
         idempotencyRequestRef.current = null
         await loadData()
         props.onSuccess?.()
+      } else {
+        handleServerError(res)
       }
-    } catch {
-      toast.error(t('Request failed'))
+    } catch (error) {
+      handleServerError(error, t('Request failed'))
     } finally {
       setCreating(false)
     }
@@ -246,9 +250,11 @@ export function UserSubscriptionsDialog(props: Props) {
         setConfirmAction(null)
         setInvalidateReason('')
         idempotencyRequestRef.current = null
+      } else {
+        handleServerError(res)
       }
-    } catch {
-      toast.error(t('Operation failed'))
+    } catch (error) {
+      handleServerError(error, t('Operation failed'))
     } finally {
       setInvalidating(false)
     }
@@ -288,9 +294,11 @@ export function UserSubscriptionsDialog(props: Props) {
         props.onSuccess?.()
         setResetReason('')
         idempotencyRequestRef.current = null
+      } else {
+        handleServerError(res)
       }
-    } catch {
-      toast.error(t('Operation failed'))
+    } catch (error) {
+      handleServerError(error, t('Operation failed'))
     } finally {
       setResetting(false)
       setResetAction(null)

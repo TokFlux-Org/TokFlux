@@ -18,32 +18,34 @@ import (
 // action 的 params 填充。本地化展示文案在前端 i18n 模板中维护，本表是语言中立的
 // 英文基线——调用方因此无需在每个埋点处手写句子（避免与 params 重复书写同一份值）。
 var auditContentTemplates = map[string]string{
-	"user.create":                "Created user ${username} (role ${role})",
-	"user.update":                "Updated user ${username} (ID: ${id})",
-	"user.delete":                "Deleted user ${username} (ID: ${id})",
-	"user.account_delete":        "Account deletion",
-	"user.manage":                "Performed ${action} on user ${username} (ID: ${id})",
-	"user.quota_add":             "Increased user quota by ${quota}",
-	"user.quota_subtract":        "Decreased user quota by ${quota}",
-	"user.quota_override":        "Overrode user quota from ${from} to ${to}",
-	"user.binding_clear":         "Cleared ${bindingType} binding for user ${username}",
-	"user.2fa_disable":           "Force-disabled two-factor authentication for the user",
-	"user.passkey_register":      "Registered a passkey",
-	"access_token.generate":      "Generated a system access token",
-	"access_token.revoke":        "Revoked the system access token",
-	"user.2fa_setup":             "Started two-factor authentication setup",
-	"user.2fa_enable":            "Enabled two-factor authentication",
-	"user.2fa_disable_self":      "Disabled two-factor authentication",
-	"user.2fa_backup_codes":      "Regenerated two-factor backup codes",
-	"user.security_verify":       "Completed security verification",
-	"user.password_change":       "Account password change",
-	"user.binding_start":         "Account binding request",
-	"user.binding_bind":          "Account binding",
-	"user.binding_unbind":        "Account unlinking",
-	"user.email_binding_resend":  "Email confirmation code resend",
-	"user.passkey_delete":        "Deleted a passkey",
-	"user.reset_passkey":         "Reset the user passkey",
-	"option.update":              "Updated system setting ${key}",
+	"user.create":               "Created user ${username} (role ${role})",
+	"user.update":               "Updated user ${username} (ID: ${id})",
+	"user.delete":               "Deleted user ${username} (ID: ${id})",
+	"user.account_delete":       "Account deletion",
+	"user.manage":               "Performed ${action} on user ${username} (ID: ${id})",
+	"user.quota_add":            "Increased user quota by ${quota}",
+	"user.quota_subtract":       "Decreased user quota by ${quota}",
+	"user.quota_override":       "Overrode user quota from ${from} to ${to}",
+	"user.binding_clear":        "Cleared ${bindingType} binding for user ${username}",
+	"user.2fa_disable":          "Force-disabled two-factor authentication for the user",
+	"user.passkey_register":     "Registered a passkey",
+	"access_token.generate":     "Generated an access token",
+	"access_token.revoke":       "Revoked an access token",
+	"access_token.rename":       "Renamed an access token",
+	"access_token.update":       "Changed access token permissions",
+	"user.2fa_setup":            "Started two-factor authentication setup",
+	"user.2fa_enable":           "Enabled two-factor authentication",
+	"user.2fa_disable_self":     "Disabled two-factor authentication",
+	"user.2fa_backup_codes":     "Regenerated two-factor backup codes",
+	"user.security_verify":      "Completed security verification",
+	"user.password_change":      "Account password change",
+	"user.binding_start":        "Account binding request",
+	"user.binding_bind":         "Account binding",
+	"user.binding_unbind":       "Account unlinking",
+	"user.email_binding_resend": "Email confirmation code resend",
+	"user.passkey_delete":       "Deleted a passkey",
+	"user.reset_passkey":        "Reset the user passkey",
+	"option.update":             "Updated system setting ${key}",
 	"growth.config.update":       "Updated growth configuration ${sections}",
 	"growth.refund_case.create":  "Created promotion refund case ${case_id}",
 	"growth.refund_case.action":  "Applied ${action} to promotion refund case ${id}",
@@ -76,6 +78,7 @@ var auditContentTemplates = map[string]string{
 	"subscription.user_plan_reset":        "Reset active plan ${plan_id} subscriptions for user ${target_user_id}",
 	"subscription.entitlement_grant":      "Granted subscription plan ${plan_id} to user ${target_user_id}",
 	"subscription.entitlement_invalidate": "Invalidated subscription entitlement ${subscription_id} for user ${target_user_id}",
+	"subscription.user_quota_reset": "Administrator reset the quota of subscription plan ${plan_title} (ID: ${plan_id})",
 }
 
 func recordPasskeyDomainAudit(c *gin.Context, change *model.PasskeyDomainChange, confirmed bool, err error) {
@@ -170,6 +173,12 @@ func recordUserSecurityAudit(c *gin.Context, userId int, action string, params m
 			params = map[string]any{}
 		}
 		params["code"] = code
+	}
+	if c.GetBool("use_access_token") {
+		if params == nil {
+			params = map[string]any{}
+		}
+		params["token_ref"] = c.GetString("access_token_ref")
 	}
 	var auditInfo *model.AuditRequestInfo
 	if success, ok := params["success"].(bool); ok {

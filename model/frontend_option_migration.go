@@ -86,7 +86,7 @@ func migrateLegacyOption(sourceKey, targetKey string, transform legacyOptionTran
 
 		value, transformErr := transform(source.Value)
 		if transformErr != nil {
-			common.SysError(fmt.Sprintf("legacy option %s was not migrated: %v", sourceKey, transformErr))
+			common.SysError(common.LogText("legacy option %s was not migrated: %v", sourceKey, transformErr))
 			return nil
 		}
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -206,7 +206,7 @@ func migrateLegacyUptimeOptions() error {
 		}
 
 		if urlErr != nil || slugErr != nil || strings.TrimSpace(urlOption.Value) == "" || strings.TrimSpace(slugOption.Value) == "" {
-			common.SysError("legacy Uptime Kuma options were not migrated: both URL and slug are required")
+			common.SysError(common.LogText("legacy Uptime Kuma options were not migrated: both URL and slug are required"))
 			return nil
 		}
 		groups := []map[string]any{{
@@ -222,7 +222,7 @@ func migrateLegacyUptimeOptions() error {
 		}
 		value := string(encoded)
 		if err := console_setting.ValidateConsoleSettings(value, "UptimeKumaGroups"); err != nil {
-			common.SysError(fmt.Sprintf("legacy Uptime Kuma options were not migrated: %v", err))
+			common.SysError(common.LogText("legacy Uptime Kuma options were not migrated: %v", err))
 			return nil
 		}
 		if errors.Is(targetErr, gorm.ErrRecordNotFound) {

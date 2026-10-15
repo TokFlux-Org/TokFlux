@@ -123,7 +123,7 @@ func TestHardDeletePreservesRefundCaseInitiatorEvidence(t *testing.T) {
 		InitiatorRole: common.RoleRootUser,
 	}).Error)
 
-	err := actor.HardDelete()
+	_, err := actor.HardDelete()
 	require.ErrorIs(t, err, ErrUserFinancialHistory)
 	var retained User
 	require.NoError(t, DB.Unscoped().First(&retained, actor.Id).Error)
@@ -341,7 +341,8 @@ func TestFinancialActorLockPreventsConcurrentHardDeleteFromLeavingOrphanEvidence
 	deleteDone := make(chan error, 1)
 	go func() {
 		close(deleteStarted)
-		deleteDone <- actor.HardDelete()
+		_, deleteErr := actor.HardDelete()
+		deleteDone <- deleteErr
 	}()
 	<-deleteStarted
 
@@ -369,6 +370,7 @@ func TestFinancialActorLockPreventsConcurrentHardDeleteFromLeavingOrphanEvidence
 	if !errors.Is(deleteErr, ErrUserFinancialHistory) {
 		// SQLite can fail the concurrent delete while upgrading its snapshot to
 		// a writer; a retry must then observe the committed actor evidence.
-		require.ErrorIs(t, actor.HardDelete(), ErrUserFinancialHistory)
+		_, deleteErr := actor.HardDelete()
+		require.ErrorIs(t, deleteErr, ErrUserFinancialHistory)
 	}
 }

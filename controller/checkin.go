@@ -14,7 +14,7 @@ import (
 func GetCheckinStatus(c *gin.Context) {
 	growthSetting := operation_setting.GetGrowthSetting()
 	if !growthSetting.DailyCheckinEnabled {
-		common.ApiErrorMsg(c, "签到功能未启用")
+		common.ApiErrorT(c, "Check-in feature is not enabled")
 		return
 	}
 	userId := c.GetInt("id")
@@ -23,10 +23,7 @@ func GetCheckinStatus(c *gin.Context) {
 
 	stats, err := service.GetCheckinStats(userId, month)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
 
@@ -45,7 +42,7 @@ func GetCheckinStatus(c *gin.Context) {
 func DoCheckin(c *gin.Context) {
 	growthSetting := operation_setting.GetGrowthSetting()
 	if !growthSetting.DailyCheckinEnabled {
-		common.ApiErrorMsg(c, "签到功能未启用")
+		common.ApiErrorT(c, "Check-in feature is not enabled")
 		return
 	}
 
@@ -53,17 +50,11 @@ func DoCheckin(c *gin.Context) {
 
 	reward, err := service.ClaimGrowthRewardItem(userId, "daily_checkin", "")
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		common.ApiError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "签到成功",
-		"data": gin.H{
-			"quota_awarded": reward.RewardQuota,
-			"checkin_date":  time.Now().Format("2006-01-02")},
+	common.ApiSuccessT(c, "Check-in successful", gin.H{
+		"quota_awarded": reward.RewardQuota,
+		"checkin_date": time.Now().Format("2006-01-02"),
 	})
 }

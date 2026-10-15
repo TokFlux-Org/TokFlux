@@ -190,6 +190,8 @@ export interface SystemStatus {
   growth_rewards_enabled?: boolean
   growth_submission_enabled?: boolean
   custom_oauth_providers?: CustomOAuthProviderInfo[]
+  log_export_enabled?: boolean
+  log_max_range_days?: number
   [key: string]: unknown
 }
 

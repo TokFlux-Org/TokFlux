@@ -49,6 +49,7 @@
 </p>
 
 <p align="center">
+  <a href="#screenshots">Screenshots</a> •
   <a href="#capabilities">Capabilities</a> •
   <a href="#quick-start">Quick start</a> •
   <a href="#deployment">Deployment</a> •
@@ -76,6 +77,20 @@ Use it to share authorized model access across a team, switch providers without 
 
 > [!WARNING]
 > When operating this project as a public generative AI service or API resale service, users should first complete all required filing, licensing, content safety, real-name verification, log retention, tax, payment, and upstream authorization obligations.
+
+---
+
+<a id="screenshots"></a>
+
+## Screenshots
+
+Accounts, channels, plugin installation states, usage, prices, and costs shown below are simulated data. The marketplace displays the official plugin catalog. Click an image to view it at full size.
+
+| Usage dashboard | Plugin marketplace |
+| --- | --- |
+| [![Usage dashboard with simulated requests, costs, and performance metrics](assets/screenshots/dashboard.en.jpg)](assets/screenshots/dashboard.en.jpg) | [![Official plugin marketplace with simulated installation status](assets/screenshots/plugin-marketplace.en.jpg)](assets/screenshots/plugin-marketplace.en.jpg) |
+| **Model square** | **Usage logs** |
+| [![Model square with simulated model pricing and availability](assets/screenshots/models.en.jpg)](assets/screenshots/models.en.jpg) | [![Usage logs with simulated tokens, costs, and response times](assets/screenshots/usage-logs.en.jpg)](assets/screenshots/usage-logs.en.jpg) |
 
 ---
 

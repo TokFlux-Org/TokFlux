@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
+
 import { QUOTA_TYPE_VALUES, TOKEN_UNIT_DIVISORS } from '../constants'
 import type { PricingModel, TokenUnit, PriceType } from '../types'
 import { getConfiguredGroupRatio, getDisplayGroupRatio } from './model-helpers'
@@ -59,7 +60,7 @@ export function stripTrailingZeros(formatted: string): string {
  * Returns NaN when the required ratio field is missing/null so callers can
  * skip rendering that price type.
  */
-function calculateTokenPrice(
+export function calculateTokenPrice(
   model: PricingModel,
   type: PriceType,
   ratio: number

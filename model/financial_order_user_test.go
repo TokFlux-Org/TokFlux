@@ -118,7 +118,7 @@ func TestHardDeleteUserIsBlockedAfterFinancialOrderCreation(t *testing.T) {
 			require.NoError(t, DB.Create(user).Error)
 			testCase.createRecord(t, user.Id)
 
-			err := user.HardDelete()
+			_, err := user.HardDelete()
 			require.ErrorIs(t, err, ErrUserFinancialHistory)
 			var retained User
 			require.NoError(t, DB.Unscoped().First(&retained, user.Id).Error)

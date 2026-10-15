@@ -94,7 +94,7 @@ func TestHardDeletePreservesAdministratorIdentityReferencedByFinancialAudit(t *t
 			require.NoError(t, DB.Create(subject).Error)
 			testCase.createEvidence(t, admin, subject)
 
-			err := admin.HardDelete()
+			_, err := admin.HardDelete()
 			require.ErrorIs(t, err, ErrUserFinancialHistory)
 			var retained User
 			require.NoError(t, DB.Unscoped().First(&retained, admin.Id).Error)

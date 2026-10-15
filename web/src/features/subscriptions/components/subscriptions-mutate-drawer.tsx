@@ -31,6 +31,7 @@ import {
   sideDrawerHeaderClassName,
   sideDrawerSwitchItemClassName,
 } from '@/components/drawer-layout'
+import { MultiSelect } from '@/components/multi-select'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -61,8 +62,10 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
-import { MultiSelect } from '@/components/multi-select'
+import { getPaymentErrorTranslation } from '@/features/wallet/lib/payment'
 import { getCurrencyDisplay, getCurrencyLabel } from '@/lib/currency'
+import { handleServerError } from '@/lib/handle-server-error'
+
 import {
   createPlan,
   updatePlan,
@@ -229,12 +232,14 @@ export function SubscriptionsMutateDrawer({
           `${t('Waffo Pancake product created')}: ${created.product_id}`
         )
       } else {
-        const reason = typeof res.data === 'string' ? res.data : undefined
-        toast.error(
-          reason
+        const reason =
+          getPaymentErrorTranslation(res) ??
+          (typeof res.data === 'string' ? res.data : undefined)
+        handleServerError(res.data, undefined, {
+          title: reason
             ? `${t('Waffo Pancake product creation failed')}: ${reason}`
-            : t('Waffo Pancake product creation failed')
-        )
+            : t('Waffo Pancake product creation failed'),
+        })
       }
     } catch (err) {
       toast.error(

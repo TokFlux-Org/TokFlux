@@ -166,7 +166,6 @@ func TestRedeemCreditsQuotaExactlyOnce(t *testing.T) {
 	assert.Equal(t, 500, user.Quota)
 }
 
-
 func TestRedeemRollsBackCodeBalanceAndFundRecordOnWalletOverflow(t *testing.T) {
 	userId, key := setupRedeemFixture(t, 500)
 	require.NoError(t, DB.Model(&User{}).Where("id = ?", userId).Update("quota", common.MaxQuota-100).Error)
@@ -240,7 +239,7 @@ func TestHardDeleteUserRetainsSoftDeletedLegacyUsedRedemption(t *testing.T) {
 	require.NoError(t, DB.Create(redemption).Error)
 	require.NoError(t, DB.Delete(redemption).Error)
 
-	err := user.HardDelete()
+	_, err := user.HardDelete()
 	require.ErrorIs(t, err, ErrUserFinancialHistory)
 	var retained User
 	require.NoError(t, DB.Unscoped().First(&retained, user.Id).Error)

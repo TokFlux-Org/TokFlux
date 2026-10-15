@@ -26,7 +26,8 @@ func TestLateRefundRecoversFromSoftDeletedUserAndSurvivesRestore(t *testing.T) {
 		CreateTime: time.Now().Unix(), CompleteTime: time.Now().Unix(), Status: common.TopUpStatusSuccess,
 	}
 	require.NoError(t, topUp.Insert())
-	require.NoError(t, user.Delete())
+	_, deleteErr := user.Delete()
+	require.NoError(t, deleteErr)
 
 	var scoped User
 	require.ErrorIs(t, DB.First(&scoped, user.Id).Error, gorm.ErrRecordNotFound)
@@ -61,7 +62,9 @@ func TestHardDeleteAllowsUserWithoutFinancialHistory(t *testing.T) {
 	user := &User{Username: "hard-delete-clean-user", AffCode: "hard-delete-clean-user", Status: common.UserStatusEnabled}
 	require.NoError(t, DB.Create(user).Error)
 
-	require.NoError(t, user.HardDelete())
+	_, deleteErr := user.HardDelete()
+
+	require.NoError(t, deleteErr)
 	require.ErrorIs(t, DB.Unscoped().First(&User{}, user.Id).Error, gorm.ErrRecordNotFound)
 }
 
@@ -217,7 +220,7 @@ func TestHardDeletePreservesEveryFinancialEvidenceType(t *testing.T) {
 			require.NoError(t, DB.Create(user).Error)
 			test.seed(t, user)
 
-			err := user.HardDelete()
+			_, err := user.HardDelete()
 			require.Error(t, err)
 			assert.True(t, errors.Is(err, ErrUserFinancialHistory), err)
 			require.NoError(t, DB.Unscoped().First(&User{}, user.Id).Error)

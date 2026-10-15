@@ -18,11 +18,12 @@ When evaluating frontend copy, UX, onboarding, or homepage content, prioritize:
 
 ## Tech Stack
 
-- **Backend**: Go 1.22+, Gin web framework, GORM v2 ORM
-- **Frontend**: React 19, TypeScript, Rsbuild, Base UI, Tailwind CSS
-- **Databases**: SQLite, MySQL, PostgreSQL (all three must be supported)
+- **Backend**: Go 1.26 for the root module and `tokenkit/`, Go 1.25.1 for `relaykit/` (see each module’s `go.mod`), Gin web framework, GORM v2 ORM
+- **Frontend**: React 19, TypeScript, Rsbuild 2, TanStack Router/Query/Table, Zustand, Base UI, Tailwind CSS 4
+- **Databases**: SQLite, MySQL, PostgreSQL for the primary database (all three must be supported); a separately configured log database also supports ClickHouse
 - **Cache**: Redis (go-redis) + in-memory cache
-- **Auth**: JWT, WebAuthn/Passkeys, OAuth (GitHub, Discord, OIDC, etc.)
+- **Auth**: Browser sessions, API tokens and personal access tokens, JWT, WebAuthn/Passkeys, TOTP, OAuth/OIDC; Casbin authorization in `service/authz/`
+- **Extensions**: JavaScript task plugins executed by moejs; Electron desktop wrapper
 - **Frontend package manager**: Bun (preferred over npm/yarn/pnpm)
 
 ## Architecture
@@ -48,12 +49,21 @@ pkg/           — Internal packages (cachex, ionet)
 web/           — Frontend (React 19, Rsbuild, Base UI, Tailwind)
 web/src/i18n/  — Frontend internationalization (i18next, en/zh/zh-TW/fr/ru/ja/vi)
 ```
+- The Go gateway handles management APIs, upstream relay, billing, and background tasks across `router/`, `middleware/`, `controller/`, `service/`, `model/`, and `relay/`.
+- `relaykit/` is an independent Go module for protocol DTOs and conversions; transport, authentication, database access, and billing stay in the host.
+- `tokenkit/` is an independent Go module for text and image token counting and estimation; request parsing, file loading, and billing stay in the host.
+- JavaScript task plugins live in `plugins/tasks/`, run through `pkg/jsplugin/`, and integrate with host task polling and settlement.
+- `web/` is the React frontend (see `web/AGENTS.md`); `electron/` is the desktop wrapper.
 
 ## Internationalization (i18n)
 
 ### Backend (`i18n/`)
 - Library: `nicksnyder/go-i18n/v2`
-- Languages: en, zh
+- Languages: en, zh-CN, zh-TW
+- Scope: text with no web console in between (errors returned to AI clients, emails, notifications), translated with `i18n.T` / `i18n.Translate`
+- Web console API messages are English source text built with `common.NewMessage` / `common.ApiErrorT` / `common.ApiSuccessT`; the frontend translates them, so add each key to all seven frontend locale files
+- Stored log content is `[]*common.Message`; a fail reason written by the gateway is a fixed English sentence that is also a key in the frontend locale files
+- Server log lines are English text passed through `common.LogText`; `DEFAULT_LANGUAGE=zh-CN` prints the Chinese text of the lines that have one in `common/log_text.zh-CN.json`, and is the language of backend messages for a reader who states none
 
 ### Frontend (`web/src/i18n/`)
 - Library: `i18next` + `react-i18next` + `i18next-browser-languagedetector`
@@ -74,10 +84,26 @@ web/src/i18n/  — Frontend internationalization (i18next, en/zh/zh-TW/fr/ru/ja/
 
 ### Backend Rules
 
-**relaykit module independence:** The `relaykit/` Go module MUST remain independently buildable.
+**Modern Go conventions:** Apply these conventions to new or modified Go code, including tests and `relaykit/`, when they preserve behavior and improve readability. Use the Go version declared in the relevant module's `go.mod` as the compatibility baseline.
 
-- Code under `relaykit/` MUST NOT import or depend on packages from the root `new-api` module, or rely on root-only configuration, generated files, or workspace wiring.
-- Any change affecting `relaykit/` or its public APIs MUST be verified with `cd relaykit && GOWORK=off go build ./...`; a successful root-module build is not sufficient.
+- Use `any` instead of `interface{}`, including map values, slice elements, parameters, and return types.
+- For fixed-count loops, prefer `for i := range n`, or `for range n` when the index is unused. For slice indices, prefer `for i := range items`. Keep conventional loops when the bound changes during iteration or the loop needs a different start or step.
+- When split results are only traversed once without indexing or reuse, prefer `strings.SplitSeq` or `bytes.SplitSeq` over allocating a slice with `Split`.
+- Use `strings.Cut` when splitting at the first separator, and `strings.CutPrefix` / `strings.CutSuffix` when checking and removing a prefix or suffix. Avoid separate searches and manual slicing for the same operation.
+- Use `slices.Contains` / `slices.ContainsFunc` for membership checks and `slices.Sort` for natural ordering of ordered element types instead of equivalent hand-written loops or sort callbacks.
+- Use `maps.Copy` for shallow map copies and merges. Initialize the destination as needed, and preserve nil-versus-empty behavior and the order in which later values overwrite earlier ones. It does not replace a deep copy.
+- Use built-in `min` / `max` for simple bounds instead of equivalent conditional assignments. Preserve numeric semantics; these functions do not prevent overflow in their arguments or replace billing validation and safe quota conversion.
+- Use `strings.Builder` for repeated string concatenation in loops; retain direct concatenation for simple fixed expressions.
+- Use `reflect.TypeFor[T]()` when the type is known statically, and `reflect.Pointer` instead of `reflect.Ptr`. Keep `reflect.TypeOf` when the dynamic type of a value is required.
+- Prefer `sync.WaitGroup.Go` for the standard `Add(1)` / goroutine / deferred `Done()` pattern when its lifecycle and panic contract apply. Preserve existing recovery behavior; the function passed to `Go` must not panic.
+- Remove redundant loop-variable copies such as `tc := tc` when they exist only for pre-Go-1.22 closure capture. Retain copies needed for actual snapshot semantics or variables assigned outside the loop.
+- Remove ineffective `omitempty` tags on non-pointer struct fields only after confirming the active JSON encoder preserves the same output. Do not change field types or omission behavior as part of a style cleanup; optional relay scalar fields must still follow the pointer rules below.
+- Format modified Go files with `gofmt` and remove unused imports after these changes.
+
+**relaykit and tokenkit module independence:** The `relaykit/` and `tokenkit/` Go modules MUST remain independently buildable.
+
+- Code under `relaykit/` or `tokenkit/` MUST NOT import or depend on packages from the root `new-api` module, or rely on root-only configuration, generated files, or workspace wiring. `tokenkit/` also MUST NOT depend on `relaykit/`.
+- Any change affecting `relaykit/`, `tokenkit/`, or their public APIs MUST be verified with `GOWORK=off go build ./...` inside that module; a successful root-module build is not sufficient.
 
 **JSON package:** All JSON marshal/unmarshal operations MUST use the wrapper functions in `common/json.go`:
 

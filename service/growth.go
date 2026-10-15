@@ -314,7 +314,7 @@ func TransferAllSettledPromotionCommissionsToQuota(userId int, expected Promotio
 	if err := model.InvalidateUserCache(userId); err != nil {
 		common.SysError(fmt.Sprintf("failed to invalidate user cache after commission transfer: user_id=%d error=%v", userId, err))
 	}
-	model.RecordLog(userId, model.LogTypeSystem, fmt.Sprintf("Promotion cash commission transferred to balance: %s", logger.LogQuota(transferredQuota)))
+	model.RecordLog(userId, model.LogTypeSystem, common.NewMessage(fmt.Sprintf("Promotion cash commission transferred to balance: %s", logger.LogQuota(transferredQuota))))
 	return transferredQuota, nil
 }
 
@@ -465,7 +465,7 @@ func CreatePromotionWithdrawal(userId int, req PromotionWithdrawalRequest) (*mod
 	if err != nil {
 		return nil, err
 	}
-	model.RecordLog(userId, model.LogTypeSystem, fmt.Sprintf("Promotion cash withdrawal submitted: %.2f CNY", float64(withdrawal.NetAmountCents)/100))
+	model.RecordLog(userId, model.LogTypeSystem, common.NewMessage(fmt.Sprintf("Promotion cash withdrawal submitted: %.2f CNY", float64(withdrawal.NetAmountCents)/100)))
 	return withdrawal, nil
 }
 
@@ -1165,7 +1165,7 @@ func ClaimGrowthRewardItem(userId int, code string, password string) (*model.Gro
 		return nil, err
 	}
 	_ = model.InvalidateUserCache(userId)
-	model.RecordLog(userId, model.LogTypeSystem, fmt.Sprintf("Growth reward settled: %s for %s", logger.LogQuota(rewardQuota), item.Code))
+	model.RecordLog(userId, model.LogTypeSystem, common.NewMessage(fmt.Sprintf("Growth reward settled: %s for %s", logger.LogQuota(rewardQuota), item.Code)))
 	return reward, nil
 }
 
@@ -1351,7 +1351,7 @@ func ApproveGrowthSubmission(id int, reviewerId int, req GrowthReviewRequest) (*
 		return nil, err
 	}
 	_ = model.InvalidateUserCache(submission.UserId)
-	model.RecordLog(submission.UserId, model.LogTypeSystem, fmt.Sprintf("Growth submission approved: %s for %s", logger.LogQuota(rewardQuota), submission.ItemCode))
+	model.RecordLog(submission.UserId, model.LogTypeSystem, common.NewMessage(fmt.Sprintf("Growth submission approved: %s for %s", logger.LogQuota(rewardQuota), submission.ItemCode)))
 	return &submission, nil
 }
 
@@ -1656,7 +1656,7 @@ func claimDailyCheckin(userId int, item *model.GrowthRewardItem) (*model.GrowthR
 		return nil, err
 	}
 	_ = model.InvalidateUserCache(userId)
-	model.RecordLog(userId, model.LogTypeSystem, fmt.Sprintf("用户签到，获得额度 %s", logger.LogQuota(checkin.QuotaAwarded)))
+	model.RecordLog(userId, model.LogTypeSystem, common.NewMessage(fmt.Sprintf("用户签到，获得额度 %s", logger.LogQuota(checkin.QuotaAwarded))))
 	return reward, nil
 }
 

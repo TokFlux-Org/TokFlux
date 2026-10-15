@@ -49,6 +49,7 @@
 </p>
 
 <p align="center">
+  <a href="#screenshots">项目截图</a> •
   <a href="#capabilities">核心能力</a> •
   <a href="#quick-start">快速开始</a> •
   <a href="#deployment">部署运维</a> •
@@ -76,6 +77,20 @@ New API 是面向应用、Agent 和团队的自托管 AI 网关。将不同厂�
 
 > [!WARNING]
 > 将本项目作为面向公众的生成式 AI 服务或 API 转售服务运营时，使用者应先完成备案、内容安全、实名、日志留存、税务、支付和上游授权等合规义务。
+
+---
+
+<a id="screenshots"></a>
+
+## 项目截图
+
+以下账号、渠道、插件安装状态、用量、价格和费用均为模拟数据，插件市场展示官方目录。点击图片可查看原图。
+
+| 数据看板 | 插件市场 |
+| --- | --- |
+| [![数据看板：模拟请求量、费用和性能指标](assets/screenshots/dashboard.zh-CN.jpg)](assets/screenshots/dashboard.zh-CN.jpg) | [![插件市场：官方插件目录与模拟安装状态](assets/screenshots/plugin-marketplace.zh-CN.jpg)](assets/screenshots/plugin-marketplace.zh-CN.jpg) |
+| **模型广场** | **使用日志** |
+| [![模型广场：模拟模型价格与可用状态](assets/screenshots/models.zh-CN.jpg)](assets/screenshots/models.zh-CN.jpg) | [![使用日志：模拟 Token 用量、费用和响应耗时](assets/screenshots/usage-logs.zh-CN.jpg)](assets/screenshots/usage-logs.zh-CN.jpg) |
 
 ---
 

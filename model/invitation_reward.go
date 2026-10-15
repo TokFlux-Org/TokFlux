@@ -397,7 +397,7 @@ func RecordInvitationMilestoneRewardLog(reward *InvitationReward) {
 		reward.RewardType,
 		reward.InviteeId,
 	)
-	RecordLog(reward.InviterId, LogTypeSystem, content)
+	RecordLog(reward.InviterId, LogTypeSystem, common.NewMessage(content))
 }
 
 func SettleInvitationFirstRequestReward(inviteeId int) {

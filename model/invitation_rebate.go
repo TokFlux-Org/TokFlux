@@ -532,7 +532,7 @@ func RecordInvitationRebateLog(rebate *InvitationRebate) {
 		rebate.InviteeId,
 		rebate.TopUpMoney,
 	)
-	RecordLog(rebate.InviterId, LogTypeSystem, content)
+	RecordLog(rebate.InviterId, LogTypeSystem, common.NewMessage(content))
 }
 
 func GetUserInvitationRebateRecords(inviterId int, pageInfo *common.PageInfo) (

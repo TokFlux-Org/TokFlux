@@ -19,9 +19,10 @@ import (
 const subscriptionAdminTestActorID = 9999
 
 type subscriptionAdminControllerResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
-	Data    struct {
+	Success    bool   `json:"success"`
+	Message    string `json:"message"`
+	MessageKey string `json:"message_key"`
+	Data       struct {
 		Replayed bool `json:"replayed"`
 	} `json:"data"`
 }
@@ -135,7 +136,8 @@ func TestSubscriptionAdminControllersRequireReasonAndIdempotencyKey(t *testing.T
 			}
 			response := performSubscriptionAdminControllerRequest(t, request.path, paramID, request.payload, request.handler)
 			assert.False(t, response.Success)
-			assert.Equal(t, "参数错误", response.Message)
+			assert.Equal(t, "Invalid parameters", response.Message)
+			assert.Equal(t, "Invalid parameters", response.MessageKey)
 		})
 	}
 

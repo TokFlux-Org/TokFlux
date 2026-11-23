@@ -40,15 +40,11 @@ import { Route as AuthenticatedCreationIndexRouteImport } from './routes/_authen
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard/index'
 import { Route as AuthenticatedDashboardSectionRouteImport } from './routes/_authenticated/dashboard/$section'
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
-import { Route as AuthenticatedFundsOperationsIndexRouteImport } from './routes/_authenticated/funds-operations/index'
-import { Route as AuthenticatedGrowthIndexRouteImport } from './routes/_authenticated/growth/index'
-import { Route as AuthenticatedInviteIndexRouteImport } from './routes/_authenticated/invite/index'
 import { Route as AuthenticatedKeysIndexRouteImport } from './routes/_authenticated/keys/index'
 import { Route as AuthenticatedModelsIndexRouteImport } from './routes/_authenticated/models/index'
 import { Route as AuthenticatedModelsSectionRouteImport } from './routes/_authenticated/models/$section'
 import { Route as AuthenticatedPlaygroundIndexRouteImport } from './routes/_authenticated/playground/index'
 import { Route as AuthenticatedProfileIndexRouteImport } from './routes/_authenticated/profile/index'
-import { Route as AuthenticatedPromotionIndexRouteImport } from './routes/_authenticated/promotion/index'
 import { Route as AuthenticatedRedemptionCodesIndexRouteImport } from './routes/_authenticated/redemption-codes/index'
 import { Route as AuthenticatedSecurityIndexRouteImport } from './routes/_authenticated/security/index'
 import { Route as AuthenticatedSubscriptionsIndexRouteImport } from './routes/_authenticated/subscriptions/index'
@@ -237,24 +233,6 @@ const AuthenticatedErrorsErrorRoute =
     path: '/errors/$error',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedFundsOperationsIndexRoute =
-  AuthenticatedFundsOperationsIndexRouteImport.update({
-    id: '/funds-operations/',
-    path: '/funds-operations/',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedGrowthIndexRoute =
-  AuthenticatedGrowthIndexRouteImport.update({
-    id: '/growth/',
-    path: '/growth/',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedInviteIndexRoute =
-  AuthenticatedInviteIndexRouteImport.update({
-    id: '/invite/',
-    path: '/invite/',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
 const AuthenticatedKeysIndexRoute = AuthenticatedKeysIndexRouteImport.update({
   id: '/keys/',
   path: '/keys/',
@@ -282,12 +260,6 @@ const AuthenticatedProfileIndexRoute =
   AuthenticatedProfileIndexRouteImport.update({
     id: '/profile/',
     path: '/profile/',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedPromotionIndexRoute =
-  AuthenticatedPromotionIndexRouteImport.update({
-    id: '/promotion/',
-    path: '/promotion/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedRedemptionCodesIndexRoute =
@@ -490,14 +462,10 @@ export interface FileRoutesByFullPath {
   '/channels/': typeof AuthenticatedChannelsIndexRoute
   '/creation/': typeof AuthenticatedCreationIndexRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
-  '/funds-operations/': typeof AuthenticatedFundsOperationsIndexRoute
-  '/growth/': typeof AuthenticatedGrowthIndexRoute
-  '/invite/': typeof AuthenticatedInviteIndexRoute
   '/keys/': typeof AuthenticatedKeysIndexRoute
   '/models/': typeof AuthenticatedModelsIndexRoute
   '/playground/': typeof AuthenticatedPlaygroundIndexRoute
   '/profile/': typeof AuthenticatedProfileIndexRoute
-  '/promotion/': typeof AuthenticatedPromotionIndexRoute
   '/redemption-codes/': typeof AuthenticatedRedemptionCodesIndexRoute
   '/security/': typeof AuthenticatedSecurityIndexRoute
   '/subscriptions/': typeof AuthenticatedSubscriptionsIndexRoute
@@ -557,14 +525,10 @@ export interface FileRoutesByTo {
   '/channels': typeof AuthenticatedChannelsIndexRoute
   '/creation': typeof AuthenticatedCreationIndexRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
-  '/funds-operations': typeof AuthenticatedFundsOperationsIndexRoute
-  '/growth': typeof AuthenticatedGrowthIndexRoute
-  '/invite': typeof AuthenticatedInviteIndexRoute
   '/keys': typeof AuthenticatedKeysIndexRoute
   '/models': typeof AuthenticatedModelsIndexRoute
   '/playground': typeof AuthenticatedPlaygroundIndexRoute
   '/profile': typeof AuthenticatedProfileIndexRoute
-  '/promotion': typeof AuthenticatedPromotionIndexRoute
   '/redemption-codes': typeof AuthenticatedRedemptionCodesIndexRoute
   '/security': typeof AuthenticatedSecurityIndexRoute
   '/subscriptions': typeof AuthenticatedSubscriptionsIndexRoute
@@ -628,14 +592,10 @@ export interface FileRoutesById {
   '/_authenticated/channels/': typeof AuthenticatedChannelsIndexRoute
   '/_authenticated/creation/': typeof AuthenticatedCreationIndexRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
-  '/_authenticated/funds-operations/': typeof AuthenticatedFundsOperationsIndexRoute
-  '/_authenticated/growth/': typeof AuthenticatedGrowthIndexRoute
-  '/_authenticated/invite/': typeof AuthenticatedInviteIndexRoute
   '/_authenticated/keys/': typeof AuthenticatedKeysIndexRoute
   '/_authenticated/models/': typeof AuthenticatedModelsIndexRoute
   '/_authenticated/playground/': typeof AuthenticatedPlaygroundIndexRoute
   '/_authenticated/profile/': typeof AuthenticatedProfileIndexRoute
-  '/_authenticated/promotion/': typeof AuthenticatedPromotionIndexRoute
   '/_authenticated/redemption-codes/': typeof AuthenticatedRedemptionCodesIndexRoute
   '/_authenticated/security/': typeof AuthenticatedSecurityIndexRoute
   '/_authenticated/subscriptions/': typeof AuthenticatedSubscriptionsIndexRoute
@@ -698,14 +658,10 @@ export interface FileRouteTypes {
     | '/channels/'
     | '/creation/'
     | '/dashboard/'
-    | '/funds-operations/'
-    | '/growth/'
-    | '/invite/'
     | '/keys/'
     | '/models/'
     | '/playground/'
     | '/profile/'
-    | '/promotion/'
     | '/redemption-codes/'
     | '/security/'
     | '/subscriptions/'
@@ -765,14 +721,10 @@ export interface FileRouteTypes {
     | '/channels'
     | '/creation'
     | '/dashboard'
-    | '/funds-operations'
-    | '/growth'
-    | '/invite'
     | '/keys'
     | '/models'
     | '/playground'
     | '/profile'
-    | '/promotion'
     | '/redemption-codes'
     | '/security'
     | '/subscriptions'
@@ -835,14 +787,10 @@ export interface FileRouteTypes {
     | '/_authenticated/channels/'
     | '/_authenticated/creation/'
     | '/_authenticated/dashboard/'
-    | '/_authenticated/funds-operations/'
-    | '/_authenticated/growth/'
-    | '/_authenticated/invite/'
     | '/_authenticated/keys/'
     | '/_authenticated/models/'
     | '/_authenticated/playground/'
     | '/_authenticated/profile/'
-    | '/_authenticated/promotion/'
     | '/_authenticated/redemption-codes/'
     | '/_authenticated/security/'
     | '/_authenticated/subscriptions/'
@@ -1109,27 +1057,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedErrorsErrorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/funds-operations/': {
-      id: '/_authenticated/funds-operations/'
-      path: '/funds-operations'
-      fullPath: '/funds-operations/'
-      preLoaderRoute: typeof AuthenticatedFundsOperationsIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/growth/': {
-      id: '/_authenticated/growth/'
-      path: '/growth'
-      fullPath: '/growth/'
-      preLoaderRoute: typeof AuthenticatedGrowthIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/invite/': {
-      id: '/_authenticated/invite/'
-      path: '/invite'
-      fullPath: '/invite/'
-      preLoaderRoute: typeof AuthenticatedInviteIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/keys/': {
       id: '/_authenticated/keys/'
       path: '/keys'
@@ -1163,13 +1090,6 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile/'
       preLoaderRoute: typeof AuthenticatedProfileIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/promotion/': {
-      id: '/_authenticated/promotion/'
-      path: '/promotion'
-      fullPath: '/promotion/'
-      preLoaderRoute: typeof AuthenticatedPromotionIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/redemption-codes/': {
@@ -1472,14 +1392,10 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedChannelsIndexRoute: typeof AuthenticatedChannelsIndexRoute
   AuthenticatedCreationIndexRoute: typeof AuthenticatedCreationIndexRoute
   AuthenticatedDashboardIndexRoute: typeof AuthenticatedDashboardIndexRoute
-  AuthenticatedFundsOperationsIndexRoute: typeof AuthenticatedFundsOperationsIndexRoute
-  AuthenticatedGrowthIndexRoute: typeof AuthenticatedGrowthIndexRoute
-  AuthenticatedInviteIndexRoute: typeof AuthenticatedInviteIndexRoute
   AuthenticatedKeysIndexRoute: typeof AuthenticatedKeysIndexRoute
   AuthenticatedModelsIndexRoute: typeof AuthenticatedModelsIndexRoute
   AuthenticatedPlaygroundIndexRoute: typeof AuthenticatedPlaygroundIndexRoute
   AuthenticatedProfileIndexRoute: typeof AuthenticatedProfileIndexRoute
-  AuthenticatedPromotionIndexRoute: typeof AuthenticatedPromotionIndexRoute
   AuthenticatedRedemptionCodesIndexRoute: typeof AuthenticatedRedemptionCodesIndexRoute
   AuthenticatedSecurityIndexRoute: typeof AuthenticatedSecurityIndexRoute
   AuthenticatedSubscriptionsIndexRoute: typeof AuthenticatedSubscriptionsIndexRoute
@@ -1503,15 +1419,10 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedChannelsIndexRoute: AuthenticatedChannelsIndexRoute,
   AuthenticatedCreationIndexRoute: AuthenticatedCreationIndexRoute,
   AuthenticatedDashboardIndexRoute: AuthenticatedDashboardIndexRoute,
-  AuthenticatedFundsOperationsIndexRoute:
-    AuthenticatedFundsOperationsIndexRoute,
-  AuthenticatedGrowthIndexRoute: AuthenticatedGrowthIndexRoute,
-  AuthenticatedInviteIndexRoute: AuthenticatedInviteIndexRoute,
   AuthenticatedKeysIndexRoute: AuthenticatedKeysIndexRoute,
   AuthenticatedModelsIndexRoute: AuthenticatedModelsIndexRoute,
   AuthenticatedPlaygroundIndexRoute: AuthenticatedPlaygroundIndexRoute,
   AuthenticatedProfileIndexRoute: AuthenticatedProfileIndexRoute,
-  AuthenticatedPromotionIndexRoute: AuthenticatedPromotionIndexRoute,
   AuthenticatedRedemptionCodesIndexRoute:
     AuthenticatedRedemptionCodesIndexRoute,
   AuthenticatedSecurityIndexRoute: AuthenticatedSecurityIndexRoute,

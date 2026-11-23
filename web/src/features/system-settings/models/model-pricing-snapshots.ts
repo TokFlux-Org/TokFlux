@@ -116,10 +116,7 @@ export const getPriceSummary = (
     return getExpressionSummary(row, t)
   }
   if (row.billingMode === 'per-request') {
-    const base = row.price
-      ? `$${row.price} / ${t('request')}`
-      : t('Unset price')
-    return base
+    return row.price ? `$${row.price} / ${t('request')}` : t('Unset price')
   }
 
   const inputPrice = ratioToPrice(row.ratio)
@@ -211,6 +208,7 @@ export const buildModelSnapshots = ({
     fallback: {},
     context: 'billing expression',
   })
+
   const pluginExprMap = safeJsonParse<Record<string, string>>(
     pluginBillingExpr,
     { fallback: {}, context: 'plugin billing expressions' }
@@ -248,6 +246,7 @@ export const buildModelSnapshots = ({
     const image = imageMap[name]?.toString() || ''
     const audio = audioMap[name]?.toString() || ''
     const audioCompletion = audioCompletionMap[name]?.toString() || ''
+
     const modeForModel = billingModeMap[name]
     if (modeForModel === 'tiered_expr') {
       const fullExpr = billingExprMap[name] || ''
@@ -271,11 +270,6 @@ export const buildModelSnapshots = ({
       }
     }
 
-    const billingMode =
-      modeForModel === 'per-request' || price !== ''
-        ? 'per-request'
-        : 'per-token'
-
     return {
       name,
       pluginBillingExpr: pluginExpressionsByModel.get(name),
@@ -287,7 +281,7 @@ export const buildModelSnapshots = ({
       imageRatio: image,
       audioRatio: audio,
       audioCompletionRatio: audioCompletion,
-      billingMode,
+      billingMode: price !== '' ? 'per-request' : 'per-token',
       hasConflict:
         price !== '' &&
         (ratio !== '' ||

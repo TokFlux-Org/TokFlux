@@ -80,7 +80,6 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 	}
 
 	var preConsumedQuota int
-	var quotaToPreConsumeBeforeGroup float64
 	var modelRatio float64
 	var completionRatio float64
 	var cacheRatio float64
@@ -118,8 +117,8 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 		imageRatio, _ = ratio_setting.GetImageRatio(billingModelName)
 		audioRatio = ratio_setting.GetAudioRatio(billingModelName)
 		audioCompletionRatio = ratio_setting.GetAudioCompletionRatio(billingModelName)
-		quotaToPreConsumeBeforeGroup = preConsumedTokens * modelRatio
-		quota, err := common.QuotaFromFloatStrict(quotaToPreConsumeBeforeGroup * groupRatioInfo.GroupRatio)
+		ratio := modelRatio * groupRatioInfo.GroupRatio
+		quota, err := common.QuotaFromFloatStrict(preConsumedTokens * ratio)
 		if err != nil {
 			return hosttypes.PriceData{}, err
 		}
@@ -156,27 +155,25 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 	}
 
 	priceData := hosttypes.PriceData{
-		FreeModel:                    freeModel,
-		ModelPrice:                   modelPrice,
-		ModelRatio:                   modelRatio,
-		CompletionRatio:              completionRatio,
-		GroupRatioInfo:               groupRatioInfo,
-		UsePrice:                     usePrice,
-		CacheRatio:                   cacheRatio,
-		ImageRatio:                   imageRatio,
-		AudioRatio:                   audioRatio,
-		AudioCompletionRatio:         audioCompletionRatio,
-		CacheCreationRatio:           cacheCreationRatio,
-		CacheCreation5mRatio:         cacheCreationRatio5m,
-		CacheCreation1hRatio:         cacheCreationRatio1h,
-		QuotaToPreConsume:            preConsumedQuota,
-		QuotaToPreConsumeBeforeGroup: quotaToPreConsumeBeforeGroup,
+		FreeModel:            freeModel,
+		ModelPrice:           modelPrice,
+		ModelRatio:           modelRatio,
+		CompletionRatio:      completionRatio,
+		GroupRatioInfo:       groupRatioInfo,
+		UsePrice:             usePrice,
+		CacheRatio:           cacheRatio,
+		ImageRatio:           imageRatio,
+		AudioRatio:           audioRatio,
+		AudioCompletionRatio: audioCompletionRatio,
+		CacheCreationRatio:   cacheCreationRatio,
+		CacheCreation5mRatio: cacheCreationRatio5m,
+		CacheCreation1hRatio: cacheCreationRatio1h,
+		QuotaToPreConsume:    preConsumedQuota,
 	}
 	if usePrice {
 		for name, ratio := range meta.BillingRatios {
 			priceData.AddOtherRatio(name, ratio)
 		}
-		priceData.QuotaToPreConsumeBeforeGroup = priceData.ApplyOtherRatiosToFloat(modelPrice * common.QuotaPerUnit)
 	}
 	if request, image := info.Request.(*dto.ImageRequest); image {
 		count, err := request.ImageCount(false)

@@ -244,7 +244,7 @@ export function buildPreviewRows(
   }
 
   if (mode === 'per-request') {
-    const rows: PreviewRow[] = [
+    return [
       {
         key: 'price',
         label: billingDetails?.image_count
@@ -257,7 +257,6 @@ export function buildPreviewRows(
       },
       ...pricingAdjustmentRows(billingDetails, t),
     ]
-    return rows
   }
 
   let audioInputValue =

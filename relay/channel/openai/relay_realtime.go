@@ -2,7 +2,6 @@ package openai
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
@@ -35,7 +34,6 @@ func OpenaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo) (*types.
 	usage := &dto.RealtimeUsage{}
 	localUsage := &dto.RealtimeUsage{}
 	sumUsage := &dto.RealtimeUsage{}
-	var localUsageMu sync.Mutex
 
 	gopool.Go(func() {
 		defer func() {
@@ -78,21 +76,16 @@ func OpenaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo) (*types.
 					return
 				}
 				logger.LogInfo(c, common.LogText("type: %s, textToken: %d, audioToken: %d", realtimeEvent.Type, textToken, audioToken))
+				localUsage.TotalTokens += textToken + audioToken
+				localUsage.InputTokens += textToken + audioToken
+				localUsage.InputTokenDetails.TextTokens += textToken
+				localUsage.InputTokenDetails.AudioTokens += audioToken
 
 				err = helper.WssString(c, targetConn, string(message))
 				if err != nil {
 					errChan <- fmt.Errorf("error writing to target: %v", err)
 					return
 				}
-				// Count local fallback usage only after the upstream accepted the
-				// message. The target reader may clear the estimate when it receives
-				// authoritative response usage, so both goroutines share this lock.
-				localUsageMu.Lock()
-				localUsage.TotalTokens += textToken + audioToken
-				localUsage.InputTokens += textToken + audioToken
-				localUsage.InputTokenDetails.TextTokens += textToken
-				localUsage.InputTokenDetails.AudioTokens += audioToken
-				localUsageMu.Unlock()
 
 				select {
 				case sendChan <- message:
@@ -140,20 +133,15 @@ func OpenaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo) (*types.
 						usage.InputTokenDetails.TextTokens += realtimeUsage.InputTokenDetails.TextTokens
 						usage.OutputTokenDetails.AudioTokens += realtimeUsage.OutputTokenDetails.AudioTokens
 						usage.OutputTokenDetails.TextTokens += realtimeUsage.OutputTokenDetails.TextTokens
-						// Clear the local estimate before the potentially slow reserve call
-						// so messages for the next response are not erased afterward.
-						localUsageMu.Lock()
-						localUsage = &dto.RealtimeUsage{}
-						localUsageMu.Unlock()
 						err := preConsumeUsage(c, info, usage, sumUsage)
-						// preConsumeUsage has already added this segment to sumUsage,
-						// including when extending the reservation fails. Clear it
-						// before returning so final settlement cannot count it twice.
-						usage = &dto.RealtimeUsage{}
 						if err != nil {
 							errChan <- fmt.Errorf("error consume usage: %v", err)
 							return
 						}
+						// 本次计费完成，清除
+						usage = &dto.RealtimeUsage{}
+
+						localUsage = &dto.RealtimeUsage{}
 					} else {
 						textToken, audioToken, err := service.CountTokenRealtime(info, *realtimeEvent, info.UpstreamModelName)
 						if err != nil {
@@ -161,29 +149,23 @@ func OpenaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo) (*types.
 							return
 						}
 						logger.LogInfo(c, common.LogText("type: %s, textToken: %d, audioToken: %d", realtimeEvent.Type, textToken, audioToken))
-						localUsageMu.Lock()
 						localUsage.TotalTokens += textToken + audioToken
 						info.IsFirstRequest = false
 						localUsage.InputTokens += textToken + audioToken
 						localUsage.InputTokenDetails.TextTokens += textToken
 						localUsage.InputTokenDetails.AudioTokens += audioToken
-						usageForSettlement := localUsage
-						// The segment is now represented by sumUsage even if reserve
-						// failed, so it must not be replayed during final cleanup.
-						localUsage = &dto.RealtimeUsage{}
-						localUsageMu.Unlock()
-						err = preConsumeUsage(c, info, usageForSettlement, sumUsage)
+						err = preConsumeUsage(c, info, localUsage, sumUsage)
 						if err != nil {
 							errChan <- fmt.Errorf("error consume usage: %v", err)
 							return
 						}
+						// 本次计费完成，清除
+						localUsage = &dto.RealtimeUsage{}
 						// print now usage
 					}
-					localUsageMu.Lock()
-					localUsageSnapshot := *localUsage
-					localUsageMu.Unlock()
 					logger.LogInfo(c, common.LogText("realtime streaming sumUsage: %v", sumUsage))
-					logger.LogInfo(c, common.LogText("realtime streaming localUsage: %v", &localUsageSnapshot))
+					logger.LogInfo(c, common.LogText("realtime streaming localUsage: %v", localUsage))
+					logger.LogInfo(c, common.LogText("realtime streaming localUsage: %v", localUsage))
 
 				} else if realtimeEvent.Type == dto.RealtimeEventTypeSessionUpdated || realtimeEvent.Type == dto.RealtimeEventTypeSessionCreated {
 					realtimeSession := realtimeEvent.Session
@@ -199,12 +181,10 @@ func OpenaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo) (*types.
 						return
 					}
 					logger.LogInfo(c, common.LogText("type: %s, textToken: %d, audioToken: %d", realtimeEvent.Type, textToken, audioToken))
-					localUsageMu.Lock()
 					localUsage.TotalTokens += textToken + audioToken
 					localUsage.OutputTokens += textToken + audioToken
 					localUsage.OutputTokenDetails.TextTokens += textToken
 					localUsage.OutputTokenDetails.AudioTokens += audioToken
-					localUsageMu.Unlock()
 				}
 
 				err = helper.WssString(c, clientConn, string(message))
@@ -234,12 +214,8 @@ func OpenaiRealtimeHandler(c *gin.Context, info *relaycommon.RelayInfo) (*types.
 		_ = preConsumeUsage(c, info, usage, sumUsage)
 	}
 
-	localUsageMu.Lock()
-	remainingLocalUsage := localUsage
-	localUsage = &dto.RealtimeUsage{}
-	localUsageMu.Unlock()
-	if remainingLocalUsage.TotalTokens != 0 {
-		_ = preConsumeUsage(c, info, remainingLocalUsage, sumUsage)
+	if localUsage.TotalTokens != 0 {
+		_ = preConsumeUsage(c, info, localUsage, sumUsage)
 	}
 
 	// check usage total tokens, if 0, use local usage
@@ -260,6 +236,7 @@ func preConsumeUsage(ctx *gin.Context, info *relaycommon.RelayInfo, usage *dto.R
 	totalUsage.InputTokenDetails.AudioTokens += usage.InputTokenDetails.AudioTokens
 	totalUsage.OutputTokenDetails.TextTokens += usage.OutputTokenDetails.TextTokens
 	totalUsage.OutputTokenDetails.AudioTokens += usage.OutputTokenDetails.AudioTokens
-	err := service.PreWssConsumeQuota(ctx, info, totalUsage)
+	// clear usage
+	err := service.PreWssConsumeQuota(ctx, info, usage)
 	return err
 }

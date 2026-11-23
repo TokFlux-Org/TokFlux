@@ -49,25 +49,6 @@ type SectionDef = {
   modules: { key: string; title: string; description: string }[]
 }
 
-function normalizeRewardsModule(
-  config: SidebarModulesConfig
-): SidebarModulesConfig {
-  const personal = config.personal
-  if (!personal) return config
-
-  const normalizedPersonal = { ...personal }
-  const hasLegacyPromotion =
-    personal.rewards !== undefined || personal.invite !== undefined
-  normalizedPersonal.promotion =
-    personal.promotion ??
-    (hasLegacyPromotion
-      ? personal.rewards === true || personal.invite === true
-      : true)
-  delete normalizedPersonal.rewards
-  delete normalizedPersonal.invite
-  return { ...config, personal: normalizedPersonal }
-}
-
 export function SidebarModulesCard() {
   const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
@@ -146,13 +127,6 @@ export function SidebarModulesCard() {
           description: t('Balance and top-up management'),
         },
         {
-          key: 'promotion',
-          title: t('Rewards & referrals'),
-          description: t(
-            'Reward tasks, referral credit, cash commission, and activity'
-          ),
-        },
-        {
           key: 'personal',
           title: t('Personal Settings'),
           description: t('Personal info settings'),
@@ -172,7 +146,7 @@ export function SidebarModulesCard() {
       if (res.data.success && res.data.data?.sidebar_modules) {
         const raw = res.data.data.sidebar_modules
         const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
-        setConfig(normalizeRewardsModule(parsed))
+        setConfig(parsed)
       } else {
         const defaults: SidebarModulesConfig = {}
         for (const sec of sectionDefs) {

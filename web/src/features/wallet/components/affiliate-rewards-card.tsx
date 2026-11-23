@@ -16,77 +16,120 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { AffiliateIcon, ArrowRight01Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { Link } from '@tanstack/react-router'
+import { Share2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import { buttonVariants } from '@/components/ui/button'
+import { CopyButton } from '@/components/copy-button'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { IconBadge } from '@/components/ui/icon-badge'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useIsSidebarModuleVisible } from '@/hooks/use-sidebar-config'
+import { formatQuota } from '@/lib/format'
+
+import type { UserWalletData } from '../types'
 
 interface AffiliateRewardsCardProps {
+  user: UserWalletData | null
+  affiliateLink: string
+  onTransfer: () => void
+  complianceConfirmed?: boolean
   loading?: boolean
 }
 
-export function AffiliateRewardsCard(props: AffiliateRewardsCardProps) {
+export function AffiliateRewardsCard({
+  user,
+  affiliateLink,
+  onTransfer,
+  complianceConfirmed = true,
+  loading,
+}: AffiliateRewardsCardProps) {
   const { t } = useTranslation()
-  const isPromotionVisible = useIsSidebarModuleVisible('/promotion')
-  if (!isPromotionVisible) return null
-
-  if (props.loading) {
+  if (loading) {
     return (
       <Card data-card-hover='false' className='bg-muted/20 py-0'>
-        <CardContent className='grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center'>
+        <CardContent className='grid gap-4 p-3 sm:p-4 lg:grid-cols-[minmax(220px,1fr)_minmax(220px,0.72fr)_minmax(320px,1.15fr)] lg:items-center'>
           <div>
-            <Skeleton className='h-5 w-40' />
-            <Skeleton className='mt-2 h-4 w-64 max-w-full' />
+            <Skeleton className='h-5 w-32' />
+            <Skeleton className='mt-2 h-4 w-48' />
           </div>
-          <Skeleton className='h-8 w-44' />
+          <Skeleton className='h-14 rounded-lg' />
+          <Skeleton className='h-10 rounded-lg' />
         </CardContent>
       </Card>
     )
   }
 
+  const hasRewards = (user?.aff_quota ?? 0) > 0
+
   return (
     <Card data-card-hover='false' className='bg-muted/20 py-0'>
-      <CardContent className='grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center'>
-        <div className='flex min-w-0 items-center gap-3'>
+      <CardContent className='grid gap-3 p-3 sm:gap-4 sm:p-4 lg:grid-cols-[minmax(200px,1fr)_minmax(180px,0.65fr)_minmax(280px,1fr)] lg:items-center'>
+        <div className='flex min-w-0 items-center gap-2.5'>
           <IconBadge tone='chart-3'>
-            <HugeiconsIcon
-              icon={AffiliateIcon}
-              strokeWidth={2}
-              aria-hidden='true'
-            />
+            <Share2 />
           </IconBadge>
           <div className='min-w-0'>
-            <h3 className='text-sm font-semibold'>
-              {t('Rewards & referrals')}
+            <h3 className='truncate text-sm font-semibold'>
+              {t('Referral Program')}
             </h3>
-            <p className='text-muted-foreground text-xs leading-5'>
+            <p className='text-muted-foreground line-clamp-1 text-xs'>
               {t(
-                'View reward tasks, share your referral link, and manage every type of earnings.'
+                'Earn rewards when users join through your referral link. Transfer accumulated rewards to your balance anytime.'
               )}
             </p>
           </div>
         </div>
 
-        <Link
-          to='/promotion'
-          className={buttonVariants({
-            variant: 'outline',
-            className: 'min-h-11 w-full sm:w-auto',
-          })}
-        >
-          {t('View rewards & referrals')}
-          <HugeiconsIcon
-            icon={ArrowRight01Icon}
-            strokeWidth={2}
-            aria-hidden='true'
+        <div className='grid grid-cols-3 gap-1.5 text-center'>
+          {[
+            [t('Pending'), formatQuota(user?.aff_quota ?? 0)],
+            [t('Total Earned'), formatQuota(user?.aff_history_quota ?? 0)],
+            [t('Invites'), String(user?.aff_count ?? 0)],
+          ].map(([label, value]) => (
+            <div key={label}>
+              <div className='text-muted-foreground truncate text-[10px] font-medium tracking-wider uppercase'>
+                {label}
+              </div>
+              <div className='mt-0.5 truncate text-sm font-semibold tabular-nums'>
+                {value}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className='flex items-center gap-2'>
+          <Input
+            value={affiliateLink}
+            readOnly
+            className='border-muted bg-background/70 h-9 min-w-0 flex-1 font-mono text-xs'
           />
-        </Link>
+          <CopyButton
+            value={affiliateLink}
+            variant='outline'
+            className='bg-background size-9 shrink-0'
+            iconClassName='size-4'
+            tooltip={t('Copy referral link')}
+            aria-label={t('Copy referral link')}
+          />
+          {hasRewards && (
+            <Button
+              onClick={onTransfer}
+              disabled={!complianceConfirmed}
+              className='h-9 shrink-0 px-3'
+              size='sm'
+            >
+              {t('Transfer to Balance')}
+            </Button>
+          )}
+        </div>
+        {!complianceConfirmed ? (
+          <p className='text-muted-foreground text-xs lg:col-span-3'>
+            {t(
+              'Referral reward transfer is disabled until the administrator confirms compliance terms.'
+            )}
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   )

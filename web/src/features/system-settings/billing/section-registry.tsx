@@ -18,16 +18,13 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { parseCurrencyDisplayType } from '@/lib/currency'
 
+import { CheckinSettingsSection } from '../general/checkin-settings-section'
 import { PricingSection } from '../general/pricing-section'
 import { QuotaSettingsSection } from '../general/quota-settings-section'
 import { PaymentSettingsSection } from '../integrations/payment-settings-section'
 import { RatioSettingsCard } from '../models/ratio-settings-card'
 import type { BillingSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
-import {
-  ReferralProgramAdminSection,
-  RewardProgramAdminSection,
-} from './growth-program-sections'
 
 const getModelDefaults = (settings: BillingSettings) => ({
   ModelPrice: settings.ModelPrice,
@@ -64,7 +61,8 @@ const BILLING_SECTIONS = [
       <QuotaSettingsSection
         defaultValues={{
           QuotaForNewUser: settings.QuotaForNewUser,
-          PreConsumedQuota: settings.PreConsumedQuota,
+          QuotaForInviter: settings.QuotaForInviter,
+          QuotaForInvitee: settings.QuotaForInvitee,
           TopUpLink: settings.TopUpLink,
           quota_setting: {
             trust_quota_usd: settings['quota_setting.trust_quota_usd'],
@@ -74,6 +72,10 @@ const BILLING_SECTIONS = [
               settings['quota_setting.enable_free_model_pre_consume'],
           },
         }}
+        complianceConfirmed={
+          (settings['payment_setting.compliance_confirmed'] ?? false) &&
+          settings['payment_setting.compliance_terms_version'] === 'v1'
+        }
       />
     ),
   },
@@ -187,62 +189,15 @@ const BILLING_SECTIONS = [
     ),
   },
   {
-    id: 'reward-program',
-    titleKey: 'Reward Program',
+    id: 'checkin',
+    titleKey: 'Check-in Rewards',
     build: (settings: BillingSettings) => (
-      <RewardProgramAdminSection
+      <CheckinSettingsSection
         defaultValues={{
-          enabled: settings['growth_setting.enabled'],
-          dailyCheckinEnabled: settings['growth_setting.daily_checkin_enabled'],
-          dailyCheckinMinRewardQuota:
-            settings['growth_setting.daily_checkin_min_reward_quota'],
-          dailyCheckinMaxRewardQuota:
-            settings['growth_setting.daily_checkin_max_reward_quota'],
-          firstAPIKeyRewardQuota:
-            settings['growth_setting.first_api_key_reward_quota'],
-          firstAPIRequestRewardQuota:
-            settings['growth_setting.first_api_request_reward_quota'],
-          firstTopUpRewardQuota:
-            settings['growth_setting.first_topup_reward_quota'],
-          threeDayUsageRewardQuota:
-            settings['growth_setting.three_day_usage_reward_quota'],
-          monthlySpendRewardQuota:
-            settings['growth_setting.monthly_spend_reward_quota'],
-          monthlySpendTargetQuota:
-            settings['growth_setting.monthly_spend_target_quota'],
-          userDailyRewardLimitQuota:
-            settings['growth_setting.user_daily_reward_limit_quota'],
-          siteDailyBudgetQuota:
-            settings['growth_setting.site_daily_budget_quota'],
-          submissionEnabled: settings['growth_setting.submission_enabled'],
-          submissionMinRewardQuota:
-            settings['growth_setting.submission_min_reward_quota'],
-          submissionMaxRewardQuota:
-            settings['growth_setting.submission_max_reward_quota'],
+          enabled: settings['checkin_setting.enabled'],
+          minQuota: settings['checkin_setting.min_quota'],
+          maxQuota: settings['checkin_setting.max_quota'],
         }}
-      />
-    ),
-  },
-  {
-    id: 'referral-program',
-    titleKey: 'Referral Program',
-    build: (settings: BillingSettings) => (
-      <ReferralProgramAdminSection
-        defaultValues={{
-          inviterRegistrationRewardQuota: settings.QuotaForInviter,
-          inviteeRegistrationRewardQuota: settings.QuotaForInvitee,
-          inviteRebatePercentage:
-            settings['growth_setting.invite_rebate_percentage'],
-          inviteFirstRequestRewardQuota:
-            settings['growth_setting.invite_first_request_reward_quota'],
-          inviteFirstTopUpRewardQuota:
-            settings['growth_setting.invite_first_topup_reward_quota'],
-          rebateFreezeDays: settings['growth_setting.rebate_freeze_days'],
-        }}
-        complianceConfirmed={
-          (settings['payment_setting.compliance_confirmed'] ?? false) &&
-          settings['payment_setting.compliance_terms_version'] === 'v1'
-        }
       />
     ),
   },

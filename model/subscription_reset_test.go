@@ -1,11 +1,10 @@
 package model
 
 import (
-	"fmt"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,15 +19,6 @@ func seedSubscriptionResetSub(t *testing.T, sub *UserSubscription) {
 	require.NoError(t, DB.Create(sub).Error)
 }
 
-func seedSubscriptionResetUser(t *testing.T, id int, role int) {
-	t.Helper()
-	require.NoError(t, DB.Create(&User{
-		Id: id, Username: fmt.Sprintf("subscription-reset-user-%d", id), Password: "password123",
-		Status: common.UserStatusEnabled, Role: role, Group: "default",
-		AffCode: fmt.Sprintf("subscription-reset-user-%d-aff", id),
-	}).Error)
-}
-
 func getSubscriptionResetSub(t *testing.T, id int) UserSubscription {
 	t.Helper()
 	var sub UserSubscription
@@ -38,9 +28,6 @@ func getSubscriptionResetSub(t *testing.T, id int) UserSubscription {
 
 func TestAdminResetUserSubscriptionsByPlanResetsAllActiveMatchesAndAdvancesTime(t *testing.T) {
 	truncateTables(t)
-	seedSubscriptionResetUser(t, 1, common.RoleRootUser)
-	seedSubscriptionResetUser(t, 101, common.RoleCommonUser)
-	seedSubscriptionResetUser(t, 102, common.RoleCommonUser)
 
 	now := GetDBTimestamp()
 	plan := &SubscriptionPlan{
@@ -74,10 +61,7 @@ func TestAdminResetUserSubscriptionsByPlanResetsAllActiveMatchesAndAdvancesTime(
 	seedSubscriptionResetSub(t, &UserSubscription{Id: 9206, UserId: 101, PlanId: plan.Id, AmountTotal: 1000, AmountUsed: 900, StartTime: now - 3600, EndTime: activeEnd, Status: "cancelled", LastResetTime: now - 3600, NextResetTime: now + 120})
 
 	beforeReset := GetDBTimestamp()
-	result, _, err := ResetUserSubscriptionsByPlanByAdmin(AdminSubscriptionOperationInput{
-		UserId: 101, PlanId: plan.Id, AdvanceResetTime: true, ActorId: 1, ActorRole: common.RoleRootUser,
-		Reason: "test reset", IdempotencyKey: "reset-user-101-9101",
-	})
+	result, err := AdminResetUserSubscriptionsByPlan(101, plan.Id, true)
 	afterReset := GetDBTimestamp()
 
 	require.NoError(t, err)
@@ -104,8 +88,6 @@ func TestAdminResetUserSubscriptionsByPlanResetsAllActiveMatchesAndAdvancesTime(
 
 func TestAdminResetUserSubscriptionsByPlanKeepsResetTimes(t *testing.T) {
 	truncateTables(t)
-	seedSubscriptionResetUser(t, 1, common.RoleRootUser)
-	seedSubscriptionResetUser(t, 201, common.RoleCommonUser)
 
 	now := GetDBTimestamp()
 	plan := &SubscriptionPlan{
@@ -123,10 +105,7 @@ func TestAdminResetUserSubscriptionsByPlanKeepsResetTimes(t *testing.T) {
 	nextReset := now + 86400
 	seedSubscriptionResetSub(t, &UserSubscription{Id: 9302, UserId: 201, PlanId: plan.Id, AmountTotal: 2000, AmountUsed: 1200, StartTime: now - 172800, EndTime: now + 30*24*3600, Status: "active", LastResetTime: lastReset, NextResetTime: nextReset})
 
-	result, _, err := ResetUserSubscriptionsByPlanByAdmin(AdminSubscriptionOperationInput{
-		UserId: 201, PlanId: plan.Id, ActorId: 1, ActorRole: common.RoleRootUser,
-		Reason: "test reset", IdempotencyKey: "reset-user-201-9301",
-	})
+	result, err := AdminResetUserSubscriptionsByPlan(201, plan.Id, false)
 
 	require.NoError(t, err)
 	assert.False(t, result.AdvanceResetTime)
@@ -138,8 +117,6 @@ func TestAdminResetUserSubscriptionsByPlanKeepsResetTimes(t *testing.T) {
 
 func TestAdminResetUserSubscriptionsByPlanNoActiveMatchReturnsError(t *testing.T) {
 	truncateTables(t)
-	seedSubscriptionResetUser(t, 1, common.RoleRootUser)
-	seedSubscriptionResetUser(t, 301, common.RoleCommonUser)
 
 	now := GetDBTimestamp()
 	plan := &SubscriptionPlan{
@@ -153,21 +130,15 @@ func TestAdminResetUserSubscriptionsByPlanNoActiveMatchReturnsError(t *testing.T
 	seedSubscriptionResetPlan(t, plan)
 	seedSubscriptionResetSub(t, &UserSubscription{Id: 9402, UserId: 301, PlanId: plan.Id, AmountTotal: 1000, AmountUsed: 500, StartTime: now - 7200, EndTime: now - 1, Status: "active"})
 
-	result, _, err := ResetUserSubscriptionsByPlanByAdmin(AdminSubscriptionOperationInput{
-		UserId: 301, PlanId: plan.Id, AdvanceResetTime: true, ActorId: 1, ActorRole: common.RoleRootUser,
-		Reason: "test reset", IdempotencyKey: "reset-user-301-9401",
-	})
+	result, err := AdminResetUserSubscriptionsByPlan(301, plan.Id, true)
 
 	require.Error(t, err)
 	assert.Nil(t, result)
-	assert.Contains(t, err.Error(), "该用户没有有效的此套餐订阅")
+	assert.True(t, strings.Contains(err.Error(), "This user has no active subscription to this plan"))
 }
 
 func TestAdminResetPlanSubscriptionsResetsAllActiveUsers(t *testing.T) {
 	truncateTables(t)
-	seedSubscriptionResetUser(t, 1, common.RoleRootUser)
-	seedSubscriptionResetUser(t, 401, common.RoleCommonUser)
-	seedSubscriptionResetUser(t, 402, common.RoleCommonUser)
 
 	now := GetDBTimestamp()
 	plan := &SubscriptionPlan{
@@ -188,10 +159,7 @@ func TestAdminResetPlanSubscriptionsResetsAllActiveUsers(t *testing.T) {
 	seedSubscriptionResetSub(t, &UserSubscription{Id: 9505, UserId: 403, PlanId: plan.Id, AmountTotal: 3000, AmountUsed: 1300, StartTime: now - 7200, EndTime: now - 1, Status: "active", LastResetTime: now - 3600, NextResetTime: now - 10})
 	seedSubscriptionResetSub(t, &UserSubscription{Id: 9506, UserId: 404, PlanId: plan.Id, AmountTotal: 3000, AmountUsed: 1400, StartTime: now - 3600, EndTime: activeEnd, Status: "cancelled", LastResetTime: now - 3600, NextResetTime: now + 10})
 
-	result, _, err := ResetPlanSubscriptionsByAdmin(AdminSubscriptionOperationInput{
-		PlanId: plan.Id, AdvanceResetTime: true, ActorId: 1, ActorRole: common.RoleRootUser,
-		Reason: "test plan reset", IdempotencyKey: "reset-plan-9501",
-	})
+	result, err := AdminResetPlanSubscriptions(plan.Id, true)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -211,7 +179,6 @@ func TestAdminResetPlanSubscriptionsResetsAllActiveUsers(t *testing.T) {
 
 func TestAdminResetPlanSubscriptionsNoMatchSucceeds(t *testing.T) {
 	truncateTables(t)
-	seedSubscriptionResetUser(t, 1, common.RoleRootUser)
 
 	plan := &SubscriptionPlan{
 		Id:            9601,
@@ -223,10 +190,7 @@ func TestAdminResetPlanSubscriptionsNoMatchSucceeds(t *testing.T) {
 	}
 	seedSubscriptionResetPlan(t, plan)
 
-	result, _, err := ResetPlanSubscriptionsByAdmin(AdminSubscriptionOperationInput{
-		PlanId: plan.Id, AdvanceResetTime: true, ActorId: 1, ActorRole: common.RoleRootUser,
-		Reason: "test empty plan reset", IdempotencyKey: "reset-plan-9601",
-	})
+	result, err := AdminResetPlanSubscriptions(plan.Id, true)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)

@@ -59,7 +59,7 @@ func (w *WalletFunding) Settle(delta int) error {
 		return nil
 	}
 	if delta > 0 {
-		return model.SettleAuthorizedUserQuota(w.userId, delta)
+		return model.DecreaseUserQuota(w.userId, delta, false)
 	}
 	return model.IncreaseUserQuota(w.userId, -delta, false)
 }
@@ -100,7 +100,10 @@ func (s *SubscriptionFunding) PreConsume(_ int) error {
 	if err != nil {
 		return err
 	}
-	s.applyPreConsumeResult(res)
+	s.subscriptionId = res.UserSubscriptionId
+	s.preConsumed = res.PreConsumed
+	s.AmountTotal = res.AmountTotal
+	s.AmountUsedAfter = res.AmountUsedAfter
 	// 获取订阅计划信息
 	if planInfo, err := model.GetSubscriptionPlanInfoByUserSubscriptionId(res.UserSubscriptionId); err == nil && planInfo != nil {
 		s.PlanId = planInfo.PlanId
@@ -109,38 +112,11 @@ func (s *SubscriptionFunding) PreConsume(_ int) error {
 	return nil
 }
 
-func (s *SubscriptionFunding) applyPreConsumeResult(res *model.SubscriptionPreConsumeResult) {
-	if res == nil {
-		return
-	}
-	s.subscriptionId = res.UserSubscriptionId
-	s.preConsumed = res.PreConsumed
-	s.AmountTotal = res.AmountTotal
-	s.AmountUsedAfter = res.AmountUsedAfter
-}
-
-func (s *SubscriptionFunding) Reserve(targetReserved int64) error {
-	res, err := model.ReserveSubscriptionPreConsume(s.requestId, targetReserved)
-	if err != nil {
-		return err
-	}
-	s.applyPreConsumeResult(res)
-	return nil
-}
-
 func (s *SubscriptionFunding) Settle(delta int) error {
-	finalConsumed := s.preConsumed + int64(delta)
-	if finalConsumed < 0 {
-		return errors.New("subscription final consumed quota cannot be negative")
+	if delta == 0 {
+		return nil
 	}
-	res, err := model.SettleSubscriptionPreConsume(s.requestId, finalConsumed)
-	if err != nil {
-		return err
-	}
-	if res != nil {
-		s.AmountUsedAfter = res.AmountUsedAfter
-	}
-	return nil
+	return model.PostConsumeUserSubscriptionDelta(s.subscriptionId, int64(delta))
 }
 
 func (s *SubscriptionFunding) Refund() error {

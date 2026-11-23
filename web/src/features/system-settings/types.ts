@@ -39,50 +39,6 @@ export type UpdateOptionResponse = {
   message: string
 }
 
-export type RewardProgramConfig = {
-  enabled: boolean
-  daily_checkin_enabled: boolean
-  daily_checkin_min_reward_quota: number
-  daily_checkin_max_reward_quota: number
-  first_api_key_reward_quota: number
-  first_api_request_reward_quota: number
-  first_topup_reward_quota: number
-  three_day_usage_reward_quota: number
-  monthly_spend_reward_quota: number
-  monthly_spend_target_quota: number
-  user_daily_reward_limit_quota: number
-  site_daily_budget_quota: number
-  submission_enabled: boolean
-  submission_min_reward_quota: number
-  submission_max_reward_quota: number
-}
-
-export type ReferralProgramConfig = {
-  inviter_registration_reward_quota: number
-  invitee_registration_reward_quota: number
-  invite_rebate_percentage: number
-  invite_first_request_reward_quota: number
-  invite_first_topup_reward_quota: number
-  rebate_freeze_days: number
-}
-
-export type AdminGrowthConfig = {
-  reward_program: RewardProgramConfig
-  referral_program: ReferralProgramConfig
-  compliance_enabled: boolean
-}
-
-export type AdminGrowthConfigUpdate = {
-  reward_program?: RewardProgramConfig
-  referral_program?: ReferralProgramConfig
-}
-
-export type AdminGrowthConfigResponse = {
-  success: boolean
-  message: string
-  data: AdminGrowthConfig
-}
-
 export interface PasskeyDomainChange {
   rp_id: string
   legacy_rp_ids: string
@@ -317,7 +273,6 @@ export type ModelSettings = {
 
 export type BillingSettings = {
   QuotaForNewUser: number
-  PreConsumedQuota: number
   QuotaForInviter: number
   QuotaForInvitee: number
   TopUpLink: string
@@ -398,27 +353,9 @@ export type BillingSettings = {
   // section (saved via /api/option/waffo-pancake/save).
   WaffoPancakeStoreID: string
   WaffoPancakeProductID: string
-  WaffoPancakeUnitPrice: number
-  WaffoPancakeMinTopUp: number
-  'growth_setting.enabled': boolean
-  'growth_setting.daily_checkin_enabled': boolean
-  'growth_setting.daily_checkin_min_reward_quota': number
-  'growth_setting.daily_checkin_max_reward_quota': number
-  'growth_setting.first_api_key_reward_quota': number
-  'growth_setting.first_api_request_reward_quota': number
-  'growth_setting.first_topup_reward_quota': number
-  'growth_setting.three_day_usage_reward_quota': number
-  'growth_setting.monthly_spend_reward_quota': number
-  'growth_setting.monthly_spend_target_quota': number
-  'growth_setting.invite_rebate_percentage': number
-  'growth_setting.invite_first_request_reward_quota': number
-  'growth_setting.invite_first_topup_reward_quota': number
-  'growth_setting.rebate_freeze_days': number
-  'growth_setting.user_daily_reward_limit_quota': number
-  'growth_setting.site_daily_budget_quota': number
-  'growth_setting.submission_enabled': boolean
-  'growth_setting.submission_min_reward_quota': number
-  'growth_setting.submission_max_reward_quota': number
+  'checkin_setting.enabled': boolean
+  'checkin_setting.min_quota': number
+  'checkin_setting.max_quota': number
 }
 
 export type OperationsSettings = {

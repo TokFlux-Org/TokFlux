@@ -26,6 +26,7 @@ func MigrateRetiredFrontendOptions() error {
 	if err := normalizeRetiredThemeOption(); err != nil {
 		migrationErrors = append(migrationErrors, fmt.Errorf("normalize %s: %w", retiredThemeOptionKey, err))
 	}
+
 	migrations := []struct {
 		source    string
 		target    string
@@ -46,8 +47,6 @@ func MigrateRetiredFrontendOptions() error {
 	return errors.Join(migrationErrors...)
 }
 
-// normalizeRetiredThemeOption keeps the removed frontend option readable for
-// older clients while ensuring the only supported dashboard is the default one.
 func normalizeRetiredThemeOption() error {
 	return DB.Transaction(func(tx *gorm.DB) error {
 		var option Option

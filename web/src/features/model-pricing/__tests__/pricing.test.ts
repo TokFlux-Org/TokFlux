@@ -22,34 +22,12 @@ import { buildPricingChanges, type ModelPricingConfig } from '../api'
 import {
   applyPriceSyncSelections,
   applyPricingDraft,
-  mergeModelPricingDefaults,
   pricingFromDraft,
   pricingOptions,
   pricingRow,
 } from '../pricing'
 
 describe('shared model pricing', () => {
-  it('keeps settings values when a snapshot omits optional map fields', () => {
-    const defaults = {
-      ModelPrice: '{}',
-      BillingMode: '{}',
-      BillingExpr: '{}',
-    }
-
-    expect(
-      mergeModelPricingDefaults(defaults, {
-        ModelPrice: '{"example":1}',
-        'billing_setting.billing_mode': '{}',
-        'billing_setting.billing_expr': '{}',
-      })
-    ).toEqual({
-      ...defaults,
-      ModelPrice: '{"example":1}',
-      'billing_setting.billing_mode': '{}',
-      'billing_setting.billing_expr': '{}',
-    })
-  })
-
   it('preserves explicit zero prices and cache-write configuration', () => {
     expect(
       pricingFromDraft({

@@ -428,6 +428,7 @@ const ModelRatioVisualEditorComponent = forwardRef<
         billingExpr,
         { fallback: {}, silent: true }
       )
+
       delete priceMap[name]
       delete ratioMap[name]
       delete cacheMap[name]
@@ -560,9 +561,9 @@ const ModelRatioVisualEditorComponent = forwardRef<
     [
       modelPrice,
       modelRatio,
+      completionRatio,
       cacheRatio,
       createCacheRatio,
-      completionRatio,
       imageRatio,
       audioRatio,
       audioCompletionRatio,

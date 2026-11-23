@@ -81,20 +81,21 @@ func shouldChargeViolationFee(err *types.NewAPIError) bool {
 	return HasCSAMViolationMarker(err)
 }
 
-func calcViolationFeeQuota(amount, groupRatio float64) (int, *common.QuotaClamp) {
+func calcViolationFeeQuota(amount, groupRatio float64) int {
 	if amount <= 0 {
-		return 0, nil
+		return 0
 	}
 	if groupRatio <= 0 {
-		return 0, nil
+		return 0
 	}
-	quota, clamp := common.QuotaFromDecimalChecked(decimal.NewFromFloat(amount).
+	quota := common.QuotaFromDecimal(decimal.NewFromFloat(amount).
 		Mul(decimal.NewFromFloat(common.QuotaPerUnit)).
-		Mul(decimal.NewFromFloat(groupRatio)))
+		Mul(decimal.NewFromFloat(groupRatio)).
+		Round(0))
 	if quota <= 0 {
-		return 0, clamp
+		return 0
 	}
-	return quota, clamp
+	return quota
 }
 
 // ChargeViolationFeeIfNeeded charges an additional fee after the normal flow finishes (including refund).
@@ -116,20 +117,17 @@ func ChargeViolationFeeIfNeeded(ctx *gin.Context, relayInfo *relaycommon.RelayIn
 	}
 
 	groupRatio := relayInfo.PriceData.GroupRatioInfo.GroupRatio
-	feeQuota, quotaClamp := calcViolationFeeQuota(settings.ViolationDeductionAmount, groupRatio)
+	feeQuota := calcViolationFeeQuota(settings.ViolationDeductionAmount, groupRatio)
 	if feeQuota <= 0 {
 		return false
 	}
 
-	// The violation belongs to the request that already crossed TokenAuth.
-	// A refund hold installed while that request was in flight must stop later
-	// requests, but must not let this already-incurred fee disappear.
-	if _, err := postConsumeQuotaWithResult(relayInfo, feeQuota, 0, true, true); err != nil {
-		logger.LogError(ctx, fmt.Sprintf("failed to charge violation fee: %s", err.Error()))
+	if err := PostConsumeQuota(relayInfo, feeQuota, 0, true); err != nil {
+		logger.LogError(ctx, common.LogText("failed to charge violation fee: %s", err.Error()))
 		return false
 	}
 
-	model.UpdateUserUsedQuota(relayInfo.UserId, feeQuota)
+	model.UpdateUserUsedQuotaAndRequestCount(relayInfo.UserId, feeQuota)
 	model.UpdateChannelUsedQuota(relayInfo.ChannelId, feeQuota)
 
 	useTimeSeconds := time.Now().Unix() - relayInfo.StartTime.Unix()
@@ -148,7 +146,6 @@ func ChargeViolationFeeIfNeeded(ctx *gin.Context, relayInfo *relaycommon.RelayIn
 		"upstream_error_code":  fmt.Sprintf("%v", oai.Code),
 		"violation_fee_marker": CSAMViolationMarker,
 	})
-	attachQuotaSaturationToOther(other, quotaClamp)
 
 	model.RecordConsumeLog(ctx, relayInfo.UserId, model.RecordConsumeLogParams{
 		ChannelId:      relayInfo.ChannelId,

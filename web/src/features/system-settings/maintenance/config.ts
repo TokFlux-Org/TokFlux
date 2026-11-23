@@ -72,7 +72,6 @@ export const SIDEBAR_MODULES_DEFAULT: SidebarModulesAdminConfig = {
   personal: {
     enabled: true,
     topup: true,
-    promotion: true,
     personal: true,
     security: true,
   },
@@ -224,26 +223,6 @@ export function parseSidebarModulesAdmin(
       if (!result[sectionKey]) {
         result[sectionKey] = { ...config }
         return
-      }
-
-      if (sectionKey === 'personal') {
-        const parsedSection = parsed[sectionKey]
-        if (parsedSection && typeof parsedSection === 'object') {
-          const parsedRecord = parsedSection as Record<string, unknown>
-          const hasLegacyPromotion =
-            parsedRecord.rewards !== undefined ||
-            parsedRecord.invite !== undefined
-          const legacyValue = hasLegacyPromotion
-            ? toBoolean(parsedRecord.rewards, false) ||
-              toBoolean(parsedRecord.invite, false)
-            : undefined
-          result[sectionKey].promotion = toBoolean(
-            parsedRecord.promotion ?? legacyValue,
-            config.promotion ?? true
-          )
-          delete result[sectionKey].rewards
-          delete result[sectionKey].invite
-        }
       }
 
       Object.entries(config).forEach(([moduleKey, moduleValue]) => {

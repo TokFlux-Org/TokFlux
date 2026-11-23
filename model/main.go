@@ -29,7 +29,7 @@ var logGroupCol string
 
 // jsonScanBytes 归一化 json 列的驱动返回值:不同驱动/协议模式下同一列可能
 // 以 []byte 或 string 返回,静默丢弃 string 会导致字段被清零而不报错。
-func jsonScanBytes(value interface{}) []byte {
+func jsonScanBytes(value any) []byte {
 	switch v := value.(type) {
 	case []byte:
 		return v
@@ -329,19 +329,10 @@ func migrateDB() error {
 	if err := migratePrefillGroupUniqueness(DB); err != nil {
 		return err
 	}
-	if err := migrateSubscriptionOrderUserSubscriptionUniqueness(DB); err != nil {
-		return err
-	}
-	if err := migrateGrowthRewardTables(); err != nil {
-		return err
-	}
 	// Migrate price_amount column from float/double to decimal for existing tables
 	migrateSubscriptionPlanPriceAmount()
 	// Migrate model_limits column from varchar to text for existing tables
 	if err := migrateTokenModelLimitsToText(); err != nil {
-		return err
-	}
-	if err := migrateSubscriptionOrderUserSubscriptionLinkSQLite(); err != nil {
 		return err
 	}
 	if err := migrateOptionPrimaryKey(DB); err != nil {
@@ -363,26 +354,6 @@ func migrateDB() error {
 		&Log{},
 		&Midjourney{},
 		&TopUp{},
-		&InvitationRebate{},
-		&InvitationReward{},
-		&PromotionEvent{},
-		&PromotionFundTransaction{},
-		&PromotionFundTransactionLeg{},
-		&PromotionFundBackfillCheckpoint{},
-		&PromotionCommissionLedger{},
-		&PromotionWithdrawal{},
-		&PromotionWithdrawalItem{},
-		&PromotionWithdrawalOperation{},
-		&PromotionWithdrawalPayoutReference{},
-		&PromotionRefundCase{},
-		&PromotionRefundCaseUser{},
-		&PromotionRefundObligation{},
-		&PromotionRefundAction{},
-		&PromotionRefundRecoveryReceipt{},
-		&GrowthRewardItem{},
-		&GrowthReward{},
-		&GrowthRewardBudget{},
-		&GrowthSubmission{},
 		&QuotaData{},
 		&Task{},
 		&TaskPlugin{},
@@ -396,9 +367,6 @@ func migrateDB() error {
 		&SubscriptionOrder{},
 		&UserSubscription{},
 		&SubscriptionPreConsumeRecord{},
-		&BillingAdjustmentJournal{},
-		&SubscriptionAdminOperation{},
-		&SubscriptionAdminOperationItem{},
 		&CustomOAuthProvider{},
 		&UserOAuthBinding{},
 		&PerfMetric{},
@@ -413,29 +381,6 @@ func migrateDB() error {
 		return err
 	}
 	if err := migrateRemovedMiMoChannelTypes(DB); err != nil {
-		return err
-	}
-	if err := BackfillNullUserRefundHolds(); err != nil {
-		return err
-	}
-	if err := BackfillTopUpPurposes(); err != nil {
-		return err
-	}
-	if err := MigrateLegacyPromotionRefundAccounting(); err != nil {
-		return err
-	}
-	if err := ReconcilePendingPromotionRefundTopUps(DB); err != nil {
-		return err
-	}
-	if err := FreezeUnverifiedTopUpPromotionCommissions(); err != nil {
-		return err
-	}
-	if err := BackfillPromotionWithdrawalPayoutReferences(DB); err != nil {
-		return err
-	}
-	// Historical fund journals and withdrawal-operation audit rows can be large
-	// and are completed by the leased promotion_fund_reconcile task after boot.
-	if err := EnsureDefaultGrowthRewardItems(); err != nil {
 		return err
 	}
 	if err := InitializeUserAuthVersions(); err != nil {
@@ -563,17 +508,6 @@ type sqliteColumnDef struct {
 	DDL  string
 }
 
-// migrateSubscriptionOrderUserSubscriptionLinkSQLite adds the nullable link
-// before AutoMigrate because SQLite cannot inline a unique constraint here.
-func migrateSubscriptionOrderUserSubscriptionLinkSQLite() error {
-	if !common.UsingMainDatabase(common.DatabaseTypeSQLite) ||
-		!DB.Migrator().HasTable(&SubscriptionOrder{}) ||
-		DB.Migrator().HasColumn(&SubscriptionOrder{}, "user_subscription_id") {
-		return nil
-	}
-	return DB.Exec("ALTER TABLE `subscription_orders` ADD COLUMN `user_subscription_id` integer").Error
-}
-
 func ensureSubscriptionPlanTableSQLite() error {
 	if !common.UsingMainDatabase(common.DatabaseTypeSQLite) {
 		return nil
@@ -599,6 +533,7 @@ func ensureSubscriptionPlanTableSQLite() error {
 ` + "`max_purchase_per_user`" + ` integer DEFAULT 0,
 ` + "`upgrade_group`" + ` varchar(64) DEFAULT '',
 ` + "`downgrade_group`" + ` varchar(64) DEFAULT '',
+` + "`supported_groups`" + ` text DEFAULT '',
 ` + "`total_amount`" + ` bigint NOT NULL DEFAULT 0,
 ` + "`quota_reset_period`" + ` varchar(16) DEFAULT 'never',
 ` + "`quota_reset_custom_seconds`" + ` bigint DEFAULT 0,
@@ -636,6 +571,7 @@ PRIMARY KEY (` + "`id`" + `)
 		{Name: "max_purchase_per_user", DDL: "`max_purchase_per_user` integer DEFAULT 0"},
 		{Name: "upgrade_group", DDL: "`upgrade_group` varchar(64) DEFAULT ''"},
 		{Name: "downgrade_group", DDL: "`downgrade_group` varchar(64) DEFAULT ''"},
+		{Name: "supported_groups", DDL: "`supported_groups` text DEFAULT ''"},
 		{Name: "total_amount", DDL: "`total_amount` bigint NOT NULL DEFAULT 0"},
 		{Name: "quota_reset_period", DDL: "`quota_reset_period` varchar(16) DEFAULT 'never'"},
 		{Name: "quota_reset_custom_seconds", DDL: "`quota_reset_custom_seconds` bigint DEFAULT 0"},

@@ -13,9 +13,7 @@ var (
 		"dall-e-3",
 		"dall-e-2",
 		"prefix:dall-e", // Deprecated upstream models; retained for compatible routes.
-		"gpt-image-1",
 		"gpt-image-",
-		"chatgpt-image-latest",
 		"qwen-image",
 		"z-image",
 		"wan2.7-image-pro",

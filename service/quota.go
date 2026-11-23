@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -85,8 +86,17 @@ func calculateAudioQuota(info QuotaInfo) (int, *common.QuotaClamp) {
 }
 
 func PreWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.RealtimeUsage) error {
-	if relayInfo.UsePrice || relayInfo.PriceData.UsePrice {
+	if relayInfo.UsePrice {
 		return nil
+	}
+	userQuota, err := model.GetUserQuota(relayInfo.UserId, false)
+	if err != nil {
+		return err
+	}
+
+	token, err := model.GetTokenByKey(strings.TrimPrefix(relayInfo.TokenKey, "sk-"), false)
+	if err != nil {
+		return err
 	}
 
 	modelName := relayInfo.OriginModelName
@@ -125,48 +135,22 @@ func PreWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usag
 		GroupRatio: actualGroupRatio,
 	}
 
-	var quota int
-	if tiered, tieredQuota, _ := TryTieredSettle(relayInfo, billingexpr.TokenParams{
-		P:   float64(usage.InputTokens),
-		C:   float64(usage.OutputTokens),
-		Len: float64(usage.InputTokens),
-	}); tiered {
-		quota = tieredQuota
-	} else {
-		var clamp *common.QuotaClamp
-		quota, clamp = calculateAudioQuota(quotaInfo)
-		noteQuotaClamp(relayInfo, clamp)
-	}
-	if quota <= 0 {
-		return nil
-	}
-	if relayInfo.Billing == nil {
-		return errors.New("realtime billing session is not initialized")
+	quota, clamp := calculateAudioQuota(quotaInfo)
+	noteQuotaClamp(relayInfo, clamp)
+
+	if userQuota < quota {
+		return fmt.Errorf("user quota is not enough, user quota: %s, need quota: %s", logger.FormatQuota(userQuota), logger.FormatQuota(quota))
 	}
 
-	reservedQuota := relayInfo.Billing.GetPreConsumedQuota()
-	if quota <= reservedQuota {
-		return nil
-	}
-	additionalQuota := quota - reservedQuota
-
-	// Wallet reservations may settle authorized usage into arrears, so retain
-	// the realtime stream's balance guard before extending its reservation.
-	// Subscription and token limits are enforced atomically by Reserve.
-	if relayInfo.BillingSource != BillingSourceSubscription {
-		userQuota, err := model.GetUserQuota(relayInfo.UserId, false)
-		if err != nil {
-			return err
-		}
-		if userQuota < additionalQuota {
-			return fmt.Errorf("user quota is not enough, user quota: %s, need quota: %s", logger.FormatQuota(userQuota), logger.FormatQuota(additionalQuota))
-		}
+	if !token.UnlimitedQuota && token.RemainQuota < quota {
+		return fmt.Errorf("token quota is not enough, token remain quota: %s, need quota: %s", logger.FormatQuota(token.RemainQuota), logger.FormatQuota(quota))
 	}
 
-	if err := relayInfo.Billing.ReserveUsage(quota); err != nil {
+	err = PostConsumeQuota(relayInfo, quota, 0, false)
+	if err != nil {
 		return err
 	}
-	logger.LogInfo(ctx, "realtime streaming reserve quota success, target quota: "+fmt.Sprintf("%d", quota))
+	logger.LogInfo(ctx, common.LogText("realtime streaming consume quota success, quota: %d", quota))
 	return nil
 }
 
@@ -447,11 +431,11 @@ type postConsumeQuotaResult struct {
 }
 
 func PostConsumeQuota(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQuota int, sendEmail bool) error {
-	_, err := postConsumeQuotaWithResult(relayInfo, quota, preConsumedQuota, sendEmail, false)
+	_, err := postConsumeQuotaWithResult(relayInfo, quota, preConsumedQuota, sendEmail)
 	return err
 }
 
-func postConsumeQuotaWithResult(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQuota int, sendEmail bool, authorized bool) (result postConsumeQuotaResult, err error) {
+func postConsumeQuotaWithResult(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQuota int, sendEmail bool) (result postConsumeQuotaResult, err error) {
 
 	// 1) Consume from wallet quota OR subscription item
 	if relayInfo != nil && relayInfo.BillingSource == BillingSourceSubscription {
@@ -468,11 +452,7 @@ func postConsumeQuotaWithResult(relayInfo *relaycommon.RelayInfo, quota int, pre
 	} else {
 		// Wallet
 		if quota > 0 {
-			if authorized {
-				err = model.SettleAuthorizedUserQuota(relayInfo.UserId, quota)
-			} else {
-				err = model.DecreaseUserQuota(relayInfo.UserId, quota, false)
-			}
+			err = model.DecreaseUserQuota(relayInfo.UserId, quota, false)
 		} else {
 			err = model.IncreaseUserQuota(relayInfo.UserId, -quota, false)
 		}

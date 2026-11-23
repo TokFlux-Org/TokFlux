@@ -275,6 +275,14 @@ export function SubscriptionPurchaseDialog(props: Props) {
               {totalAmount > 0 ? formatQuota(totalAmount) : t('Unlimited')}
             </span>
           </div>
+          {plan.upgrade_group && (
+            <div className='flex items-center justify-between'>
+              <span className='text-muted-foreground text-sm'>
+                {t('Upgrade Group')}
+              </span>
+              <GroupBadge group={plan.upgrade_group} />
+            </div>
+          )}
           <div className='flex items-start justify-between gap-3'>
             <span className='text-muted-foreground text-sm'>
               {t('Supported Groups')}
@@ -289,14 +297,6 @@ export function SubscriptionPurchaseDialog(props: Props) {
               <span className='text-sm'>{t('All groups')}</span>
             )}
           </div>
-          {plan.upgrade_group && (
-            <div className='flex items-center justify-between'>
-              <span className='text-muted-foreground text-sm'>
-                {t('Upgrade Group')}
-              </span>
-              <GroupBadge group={plan.upgrade_group} />
-            </div>
-          )}
           <Separator />
           <div className='flex items-center justify-between'>
             <span className='text-sm font-medium'>{t('Amount Due')}</span>

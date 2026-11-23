@@ -33,10 +33,6 @@ type SidebarModulesAdminConfig = Record<string, SidebarSectionConfig>
 // to signal "no narrowing" (empty/invalid/legacy users).
 type SidebarModulesUserConfig = SidebarModulesAdminConfig | null
 
-type RuntimeModuleFlags = {
-  rewardCenterEnabled: boolean
-}
-
 /**
  * Default sidebar modules configuration
  */
@@ -59,7 +55,6 @@ const DEFAULT_SIDEBAR_MODULES: SidebarModulesAdminConfig = {
   personal: {
     enabled: true,
     topup: true,
-    promotion: true,
     personal: true,
     security: true,
   },
@@ -69,7 +64,6 @@ const DEFAULT_SIDEBAR_MODULES: SidebarModulesAdminConfig = {
     models: true,
     redemption: true,
     user: true,
-    funds: true,
     setting: true,
     subscription: true,
   },
@@ -89,19 +83,6 @@ const mergeWithDefaultSidebarModules = (
       }
 
       merged[sectionKey] = { ...defaultSection, ...existingSection }
-      if (sectionKey === 'personal') {
-        const hasLegacyPromotion =
-          existingSection.rewards !== undefined ||
-          existingSection.invite !== undefined
-        merged[sectionKey].promotion =
-          existingSection.promotion ??
-          (hasLegacyPromotion
-            ? existingSection.rewards === true ||
-              existingSection.invite === true
-            : defaultSection.promotion)
-        delete merged[sectionKey].rewards
-        delete merged[sectionKey].invite
-      }
       Object.keys(defaultSection).forEach((moduleKey) => {
         if (merged[sectionKey][moduleKey] === undefined) {
           merged[sectionKey][moduleKey] = defaultSection[moduleKey]
@@ -130,9 +111,6 @@ const URL_TO_CONFIG_MAP: Record<string, { section: string; module: string }> = {
   '/usage-logs/drawing': { section: 'console', module: 'midjourney' },
   '/usage-logs/task': { section: 'console', module: 'task' },
   '/wallet': { section: 'personal', module: 'topup' },
-  '/growth': { section: 'personal', module: 'promotion' },
-  '/promotion': { section: 'personal', module: 'promotion' },
-  '/invite': { section: 'personal', module: 'promotion' },
   '/profile': { section: 'personal', module: 'personal' },
   '/security': { section: 'personal', module: 'security' },
   '/channels': { section: 'admin', module: 'channel' },
@@ -142,7 +120,6 @@ const URL_TO_CONFIG_MAP: Record<string, { section: string; module: string }> = {
   '/users': { section: 'admin', module: 'user' },
   '/redemption-codes': { section: 'admin', module: 'redemption' },
   '/subscriptions': { section: 'admin', module: 'subscription' },
-  '/funds-operations': { section: 'admin', module: 'funds' },
   '/system-settings': { section: 'admin', module: 'setting' },
   '/system-settings/site': { section: 'admin', module: 'setting' },
 }
@@ -182,19 +159,6 @@ function parseUserSidebarConfig(
   try {
     const parsed = JSON.parse(value) as SidebarModulesAdminConfig
     if (!parsed || typeof parsed !== 'object') return null
-    if (parsed.personal) {
-      const personal = { ...parsed.personal }
-      const hasLegacyPromotion =
-        personal.rewards !== undefined || personal.invite !== undefined
-      personal.promotion =
-        personal.promotion ??
-        (hasLegacyPromotion
-          ? personal.rewards === true || personal.invite === true
-          : personal.promotion)
-      delete personal.rewards
-      delete personal.invite
-      parsed.personal = personal
-    }
     return parsed
   } catch {
     return null
@@ -210,13 +174,8 @@ function parseUserSidebarConfig(
 function isModuleEnabled(
   url: string,
   adminConfig: SidebarModulesAdminConfig,
-  userConfig: SidebarModulesUserConfig,
-  runtimeFlags: RuntimeModuleFlags
+  userConfig: SidebarModulesUserConfig
 ): boolean {
-  if (url === '/growth' && !runtimeFlags.rewardCenterEnabled) {
-    return false
-  }
-
   const mapping = URL_TO_CONFIG_MAP[url]
   if (!mapping) {
     // No mapping config, default to visible (e.g. system settings and new features)
@@ -244,8 +203,7 @@ function isModuleEnabled(
 function isNavItemVisible(
   item: NavItem,
   adminConfig: SidebarModulesAdminConfig,
-  userConfig: SidebarModulesUserConfig,
-  runtimeFlags: RuntimeModuleFlags
+  userConfig: SidebarModulesUserConfig
 ): boolean {
   // Handle dynamic chat presets type — also runs the admin × user AND gate
   if ('type' in item && item.type === 'chat-presets') {
@@ -263,7 +221,7 @@ function isNavItemVisible(
   if ('url' in item && item.url) {
     const configUrls = item.configUrls ?? [item.url]
     return configUrls.some((url) =>
-      isModuleEnabled(url as string, adminConfig, userConfig, runtimeFlags)
+      isModuleEnabled(url as string, adminConfig, userConfig)
     )
   }
 
@@ -271,12 +229,7 @@ function isNavItemVisible(
   if ('items' in item && item.items) {
     // If has sub-items, show this collapsible item if at least one sub-item is visible
     return item.items.some((subItem) =>
-      isModuleEnabled(
-        subItem.url as string,
-        adminConfig,
-        userConfig,
-        runtimeFlags
-      )
+      isModuleEnabled(subItem.url as string, adminConfig, userConfig)
     )
   }
 
@@ -289,20 +242,14 @@ function isNavItemVisible(
 function filterNavItems(
   items: NavItem[],
   adminConfig: SidebarModulesAdminConfig,
-  userConfig: SidebarModulesUserConfig,
-  runtimeFlags: RuntimeModuleFlags
+  userConfig: SidebarModulesUserConfig
 ): NavItem[] {
   return items
     .map((item) => {
       // If collapsible item, also filter its sub-items
       if ('items' in item && item.items) {
         const filteredSubItems = item.items.filter((subItem) =>
-          isModuleEnabled(
-            subItem.url as string,
-            adminConfig,
-            userConfig,
-            runtimeFlags
-          )
+          isModuleEnabled(subItem.url as string, adminConfig, userConfig)
         )
 
         return {
@@ -312,9 +259,7 @@ function filterNavItems(
       }
       return item
     })
-    .filter((item) =>
-      isNavItemVisible(item, adminConfig, userConfig, runtimeFlags)
-    )
+    .filter((item) => isNavItemVisible(item, adminConfig, userConfig))
 }
 
 /**
@@ -357,27 +302,15 @@ export function useSidebarConfig(navGroups: NavGroup[]): NavGroup[] {
     return parseUserSidebarConfig(auth?.user?.sidebar_modules)
   }, [auth?.user?.permissions?.sidebar_settings, auth?.user?.sidebar_modules])
 
-  const runtimeFlags = useMemo(
-    () => ({
-      rewardCenterEnabled: status?.growth_center_enabled === true,
-    }),
-    [status?.growth_center_enabled]
-  )
-
   const filteredNavGroups = useMemo(
     () =>
       navGroups
         .map((group) => ({
           ...group,
-          items: filterNavItems(
-            group.items,
-            adminConfig,
-            userConfig,
-            runtimeFlags
-          ),
+          items: filterNavItems(group.items, adminConfig, userConfig),
         }))
         .filter((group) => group.items.length > 0), // Only show navigation groups with visible items
-    [navGroups, adminConfig, userConfig, runtimeFlags]
+    [navGroups, adminConfig, userConfig]
   )
 
   return filteredNavGroups
@@ -399,9 +332,6 @@ export function useIsSidebarModuleVisible(url: string): boolean {
     auth?.user?.permissions?.sidebar_settings === false
       ? null
       : parseUserSidebarConfig(auth?.user?.sidebar_modules)
-  const runtimeFlags = {
-    rewardCenterEnabled: status?.growth_center_enabled === true,
-  }
 
-  return isModuleEnabled(url, adminConfig, userConfig, runtimeFlags)
+  return isModuleEnabled(url, adminConfig, userConfig)
 }

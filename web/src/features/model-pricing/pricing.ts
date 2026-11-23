@@ -53,40 +53,6 @@ export type PricingValues = Partial<
 }
 export type PricingOptions = Record<PricingKey, string>
 
-type ModelPricingDefaults = {
-  BillingMode: string
-  BillingExpr: string
-  PluginBillingExpr?: string
-}
-
-/**
- * Merge the snapshot's full-map options without letting an older backend
- * response erase fields that are still supplied by the settings endpoint.
- */
-export function mergeModelPricingDefaults<T extends ModelPricingDefaults>(
-  defaults: T,
-  options: Partial<PricingOptions>
-): T {
-  const merged = {
-    ...defaults,
-    ...options,
-    BillingMode:
-      options['billing_setting.billing_mode'] ?? defaults.BillingMode,
-    BillingExpr:
-      options['billing_setting.billing_expr'] ?? defaults.BillingExpr,
-  } as T & Partial<ModelPricingDefaults>
-  if (
-    options['billing_setting.plugin_billing_expr'] !== undefined ||
-    Object.prototype.hasOwnProperty.call(defaults, 'PluginBillingExpr')
-  ) {
-    merged.PluginBillingExpr =
-      options['billing_setting.plugin_billing_expr'] ??
-      defaults.PluginBillingExpr ??
-      '{}'
-  }
-  return merged as T
-}
-
 export type CacheWriteMode = 'none' | 'standard' | 'claude_ttl'
 
 export type LegacyBillingDetails = {

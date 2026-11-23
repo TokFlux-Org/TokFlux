@@ -199,7 +199,7 @@ export function ModelPriceCell(props: {
             options.priceRate,
             options.usdExchangeRate,
             options.selectedGroup,
-            false,
+            false
           ),
         },
         {
@@ -212,7 +212,7 @@ export function ModelPriceCell(props: {
             options.priceRate,
             options.usdExchangeRate,
             options.selectedGroup,
-            false,
+            false
           ),
         },
       ]
@@ -226,7 +226,7 @@ export function ModelPriceCell(props: {
             options.priceRate,
             options.usdExchangeRate,
             options.selectedGroup,
-            false,
+            false
           ),
         },
       ]

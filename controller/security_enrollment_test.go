@@ -102,10 +102,6 @@ func setupSecurityEnrollmentTest(t *testing.T) (*model.User, service.AuthIdentit
 		if err == nil {
 			_ = connection.Close()
 		}
-		logConnection, err := logDB.DB()
-		if err == nil {
-			_ = logConnection.Close()
-		}
 	})
 	password, err := common.Password2Hash("enrollment-password")
 	require.NoError(t, err)

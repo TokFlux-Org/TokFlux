@@ -40,8 +40,8 @@ export const subscriptionPlanSchema = z.object({
   max_purchase_per_user: z.number(),
   total_amount: z.number(),
   upgrade_group: z.string().optional(),
-  supported_groups: z.array(z.string()).optional(),
   downgrade_group: z.string().optional(),
+  supported_groups: z.array(z.string()).optional(),
   stripe_price_id: z.string().optional(),
   creem_product_id: z.string().optional(),
   waffo_pancake_product_id: z.string().optional(),
@@ -68,8 +68,6 @@ export const userSubscriptionSchema = z.object({
   amount_total: z.number(),
   amount_used: z.number(),
   supported_groups: z.array(z.string()).optional(),
-  downgrade_group: z.string().optional(),
-  allow_wallet_overflow: z.boolean().optional(),
   next_reset_time: z.number().optional(),
 })
 
@@ -120,26 +118,15 @@ export interface SubscriptionPayResponse {
 
 export interface CreateUserSubscriptionRequest {
   plan_id: number
-  reason: string
-  idempotency_key: string
-}
-
-export interface InvalidateUserSubscriptionRequest {
-  reason: string
-  idempotency_key: string
 }
 
 export interface ResetUserSubscriptionsRequest {
   plan_id: number
   advance_reset_time: boolean
-  reason: string
-  idempotency_key: string
 }
 
 export interface ResetPlanSubscriptionsRequest {
   advance_reset_time: boolean
-  reason: string
-  idempotency_key: string
 }
 
 export interface SubscriptionResetResult {
@@ -148,7 +135,6 @@ export interface SubscriptionResetResult {
   reset_count: number
   user_count: number
   advance_reset_time: boolean
-  replayed?: boolean
 }
 
 // ============================================================================

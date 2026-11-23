@@ -150,10 +150,11 @@ func main() {
 		return a
 	}
 
-	// Register periodic maintenance and polling jobs as scheduled system tasks
+	// Register the periodic channel test, upstream model update, and async task
+	// polling (Midjourney / Suno / video) jobs as scheduled system tasks
 	// (DB-lease dedup across masters + run history), then start the runner that
-	// schedules and executes them. The runner is master-only; UPDATE_TASK gates
-	// only async provider polling handlers, not financial maintenance.
+	// schedules and executes them. Master-only execution and the UpdateTask
+	// switch are enforced inside the runner and each handler's Enabled().
 	controller.RegisterScheduledSystemTasks()
 	service.StartSystemTaskRunner()
 
@@ -201,7 +202,10 @@ func main() {
 	InjectGoogleAnalytics()
 
 	// 设置路由
-	router.SetRouter(server, router.WebAssets{BuildFS: buildFS, IndexPage: indexPage})
+	router.SetRouter(server, router.WebAssets{
+		BuildFS:   buildFS,
+		IndexPage: indexPage,
+	})
 	var port = os.Getenv("PORT")
 	if port == "" {
 		port = strconv.Itoa(*common.Port)
@@ -304,14 +308,6 @@ func InitResources() error {
 
 	service.InitHttpClient()
 
-	// Refund-accounting migrations publish distributed hold fences. Redis must
-	// be ready before model.InitDB runs those migrations; otherwise a configured
-	// Redis deployment could expose a startup window or dereference a nil client.
-	err = common.InitRedisClient()
-	if err != nil {
-		return err
-	}
-
 	// Initialize SQL Database
 	err = model.InitDB()
 	if err != nil {
@@ -344,6 +340,12 @@ func InitResources() error {
 
 	// Initialize SQL Database
 	err = model.InitLogDB()
+	if err != nil {
+		return err
+	}
+
+	// Initialize Redis
+	err = common.InitRedisClient()
 	if err != nil {
 		return err
 	}

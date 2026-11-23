@@ -93,13 +93,7 @@ func TestSubscriptionGroupCacheRefreshFailureDoesNotChangeCommittedResult(t *tes
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)
 	DB, LOG_DB = db, db
-	require.NoError(t, db.AutoMigrate(
-		&User{},
-		&SubscriptionPlan{},
-		&UserSubscription{},
-		&SubscriptionAdminOperation{},
-		&SubscriptionAdminOperationItem{},
-	))
+	require.NoError(t, db.AutoMigrate(&User{}, &SubscriptionPlan{}, &UserSubscription{}))
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(4)
@@ -128,7 +122,6 @@ func TestSubscriptionGroupCacheRefreshFailureDoesNotChangeCommittedResult(t *tes
 	}
 	require.NoError(t, DB.Create(plan).Error)
 	InvalidateSubscriptionPlanCache(plan.Id)
-	actor := createSubscriptionAdminTestActor(t, "subscription-auth-cache-actor", common.RoleRootUser)
 
 	oldRedisEnabled, oldRDB := common.RedisEnabled, common.RDB
 	common.RedisEnabled = true
@@ -143,12 +136,10 @@ func TestSubscriptionGroupCacheRefreshFailureDoesNotChangeCommittedResult(t *tes
 		common.RedisEnabled, common.RDB = oldRedisEnabled, oldRDB
 	})
 
-	message, _, err := GrantUserSubscriptionByAdmin(AdminSubscriptionOperationInput{
-		UserId: user.Id, PlanId: plan.Id, ActorId: actor.Id, ActorRole: common.RoleRootUser,
-		Reason: "cache transition test", IdempotencyKey: "subscription-auth-cache-grant",
-	})
+	message, err := AdminBindSubscription(user.Id, plan.Id, "test")
 	require.NoError(t, err)
-	assert.Contains(t, message, "pro")
+	require.NotNil(t, message)
+	assert.Equal(t, "pro", message.Params["group"])
 
 	var updated User
 	require.NoError(t, DB.First(&updated, user.Id).Error)

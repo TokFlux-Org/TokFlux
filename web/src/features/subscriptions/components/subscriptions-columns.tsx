@@ -21,7 +21,6 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { BadgeCell } from '@/components/data-table'
-import { DataTableColumnHeader } from '@/components/data-table/core/column-header'
 import { GroupBadge } from '@/components/group-badge'
 import { StatusBadge } from '@/components/status-badge'
 import { TableId } from '@/components/table-id'
@@ -196,13 +195,8 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
       },
       {
         id: 'supported_groups',
-        meta: { label: t('Supported Groups'), mobileHidden: true },
-        header: ({ column }) => (
-          <DataTableColumnHeader
-            column={column}
-            title={t('Supported Groups')}
-          />
-        ),
+        header: t('Supported Groups'),
+        meta: { mobileHidden: true },
         cell: ({ row }) => {
           const groups = row.original.plan.supported_groups || []
           if (groups.length === 0) {

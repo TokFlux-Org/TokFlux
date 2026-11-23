@@ -26,7 +26,6 @@ import {
 
 const defaultBillingSettings: BillingSettings = {
   QuotaForNewUser: 0,
-  PreConsumedQuota: 0,
   QuotaForInviter: 0,
   QuotaForInvitee: 0,
   TopUpLink: '',
@@ -105,27 +104,9 @@ const defaultBillingSettings: BillingSettings = {
   WaffoPancakeReturnURL: '',
   WaffoPancakeStoreID: '',
   WaffoPancakeProductID: '',
-  WaffoPancakeUnitPrice: 1,
-  WaffoPancakeMinTopUp: 1,
-  'growth_setting.enabled': false,
-  'growth_setting.daily_checkin_enabled': false,
-  'growth_setting.daily_checkin_min_reward_quota': 1000,
-  'growth_setting.daily_checkin_max_reward_quota': 10000,
-  'growth_setting.first_api_key_reward_quota': 1000,
-  'growth_setting.first_api_request_reward_quota': 5000,
-  'growth_setting.first_topup_reward_quota': 5000,
-  'growth_setting.three_day_usage_reward_quota': 5000,
-  'growth_setting.monthly_spend_reward_quota': 10000,
-  'growth_setting.monthly_spend_target_quota': 500000,
-  'growth_setting.invite_rebate_percentage': 0,
-  'growth_setting.invite_first_request_reward_quota': 0,
-  'growth_setting.invite_first_topup_reward_quota': 0,
-  'growth_setting.rebate_freeze_days': 7,
-  'growth_setting.user_daily_reward_limit_quota': 0,
-  'growth_setting.site_daily_budget_quota': 0,
-  'growth_setting.submission_enabled': false,
-  'growth_setting.submission_min_reward_quota': 5000,
-  'growth_setting.submission_max_reward_quota': 50000,
+  'checkin_setting.enabled': false,
+  'checkin_setting.min_quota': 1000,
+  'checkin_setting.max_quota': 10000,
 }
 
 export function BillingSettings() {

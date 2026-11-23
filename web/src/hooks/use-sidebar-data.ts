@@ -23,9 +23,7 @@ import {
   CreditCard,
   FileText,
   FlaskConical,
-  Gift,
   Key,
-  Landmark,
   LayoutDashboard,
   ListTodo,
   MessageSquare,
@@ -125,13 +123,6 @@ export function useSidebarData(): SidebarData {
             icon: Wallet,
           },
           {
-            title: t('Rewards & referrals'),
-            url: '/promotion',
-            activeUrls: ['/growth', '/invite'],
-            configUrls: ['/promotion'],
-            icon: Gift,
-          },
-          {
             title: t('Profile'),
             url: '/profile',
             icon: User,
@@ -171,12 +162,6 @@ export function useSidebarData(): SidebarData {
             title: t('Subscriptions'),
             url: '/subscriptions',
             icon: CreditCard,
-          },
-          {
-            title: t('Funds Operations'),
-            url: '/funds-operations',
-            icon: Landmark,
-            requiredRole: ROLE.ADMIN,
           },
           {
             title: t('System Info'),

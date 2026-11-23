@@ -168,7 +168,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			break
 		}
 		service.AppendUsedChannel(c, channel.Id)
-		if billingErr := service.PrepareBillingForSelectedGroup(c, relayInfo); billingErr != nil {
+		if billingErr := service.PrepareTieredBillingForSelectedGroup(c, relayInfo); billingErr != nil {
 			newAPIError = billingErr
 			break
 		}
@@ -184,12 +184,6 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			break
 		}
 		c.Request.Body = io.NopCloser(bodyStorage)
-		if relayInfo.Billing != nil {
-			if billingErr := relayInfo.Billing.ConfirmDispatch(); billingErr != nil {
-				newAPIError = types.NewError(billingErr, types.ErrorCodeUpdateDataError, types.ErrOptionWithSkipRetry())
-				break
-			}
-		}
 
 		switch relayFormat {
 		case types.RelayFormatOpenAIRealtime:
@@ -626,7 +620,6 @@ func executeTaskSubmissionWith(
 	task.PrivateData.UpstreamTaskID = result.UpstreamTaskID
 	task.PrivateData.BillingSource = relayInfo.BillingSource
 	task.PrivateData.SubscriptionId = relayInfo.SubscriptionId
-	task.PrivateData.BillingRequestId = relayInfo.RequestId
 	task.PrivateData.TokenId = relayInfo.TokenId
 	task.PrivateData.NodeName = common.NodeName
 	task.PrivateData.BillingContext = &model.TaskBillingContext{

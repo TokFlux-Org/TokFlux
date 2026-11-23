@@ -24,7 +24,6 @@ import type {
   PlanPayload,
   UserSubscriptionRecord,
   CreateUserSubscriptionRequest,
-  InvalidateUserSubscriptionRequest,
   ResetUserSubscriptionsRequest,
   ResetPlanSubscriptionsRequest,
   SubscriptionResetResult,
@@ -92,12 +91,19 @@ export async function createUserSubscription(
 }
 
 export async function invalidateUserSubscription(
-  subId: number,
-  data: InvalidateUserSubscriptionRequest
+  subId: number
 ): Promise<ApiResponse<{ message?: string }>> {
   const res = await api.post(
-    `/api/subscription/admin/user_subscriptions/${subId}/invalidate`,
-    data
+    `/api/subscription/admin/user_subscriptions/${subId}/invalidate`
+  )
+  return res.data
+}
+
+export async function deleteUserSubscription(
+  subId: number
+): Promise<ApiResponse> {
+  const res = await api.delete(
+    `/api/subscription/admin/user_subscriptions/${subId}`
   )
   return res.data
 }

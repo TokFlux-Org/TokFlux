@@ -63,14 +63,6 @@ func (b *nativeRouteBilling) Reserve(quota int) error {
 	return nil
 }
 
-func (b *nativeRouteBilling) ConfirmDispatch() error {
-	return nil
-}
-
-func (b *nativeRouteBilling) ReserveUsage(targetQuota int) error {
-	return b.Reserve(targetQuota)
-}
-
 func TestKlingNativeRouteSubmitPollSettleAndQuery(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	service.InitHttpClient()
@@ -83,7 +75,7 @@ func TestKlingNativeRouteSubmitPollSettleAndQuery(t *testing.T) {
 	previousRedisEnabled := common.RedisEnabled
 	database, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, database.AutoMigrate(&model.User{}, &model.Channel{}, &model.Task{}, &model.Log{}, &model.BillingAdjustmentJournal{}))
+	require.NoError(t, database.AutoMigrate(&model.User{}, &model.Channel{}, &model.Task{}, &model.Log{}))
 	model.DB = database
 	model.LOG_DB = database
 	common.MemoryCacheEnabled = false

@@ -46,10 +46,6 @@ var auditContentTemplates = map[string]string{
 	"user.passkey_delete":       "Deleted a passkey",
 	"user.reset_passkey":        "Reset the user passkey",
 	"option.update":             "Updated system setting ${key}",
-	"growth.config.update":       "Updated growth configuration ${sections}",
-	"growth.refund_case.create":  "Created promotion refund case ${case_id}",
-	"growth.refund_case.action":  "Applied ${action} to promotion refund case ${id}",
-	"growth.refund_case.resolve": "Resolved promotion refund case ${id}",
 
 	"option.passkey_domains":           "Updated Passkey domains: removed ${domains}; affected ${known}; unknown ${unknown}",
 	"option.passkey_domains_confirmed": "Confirmed removal of Passkey domains: ${domains}; affected ${known}; unknown ${unknown}",
@@ -74,10 +70,8 @@ var auditContentTemplates = map[string]string{
 	"redemption.create":       "Created ${count} redemption codes named ${name} (${quota} each)",
 	"redemption.delete_batch": "Batch deleted ${count} redemption codes",
 
-	"subscription.plan_reset":             "Reset active subscriptions for plan ${plan_id}",
-	"subscription.user_plan_reset":        "Reset active plan ${plan_id} subscriptions for user ${target_user_id}",
-	"subscription.entitlement_grant":      "Granted subscription plan ${plan_id} to user ${target_user_id}",
-	"subscription.entitlement_invalidate": "Invalidated subscription entitlement ${subscription_id} for user ${target_user_id}",
+	"subscription.plan_reset":       "Reset active subscriptions for plan ${plan_id}",
+	"subscription.user_plan_reset":  "Reset active plan ${plan_id} subscriptions for user ${target_user_id}",
 	"subscription.user_quota_reset": "Administrator reset the quota of subscription plan ${plan_title} (ID: ${plan_id})",
 }
 

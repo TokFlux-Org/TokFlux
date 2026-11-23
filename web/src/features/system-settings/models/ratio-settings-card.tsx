@@ -35,10 +35,7 @@ import {
   useSaveModelPricing,
   type ModelPricingConfig,
 } from '@/features/model-pricing/api'
-import {
-  mergeModelPricingDefaults,
-  pricingOptions,
-} from '@/features/model-pricing/pricing'
+import { pricingOptions } from '@/features/model-pricing/pricing'
 import { handleServerError } from '@/lib/handle-server-error'
 
 import { SettingsPageTitleStatusPortal } from '../components/settings-page-context'
@@ -190,10 +187,16 @@ export function RatioSettingsCard({
   const modelDefaults = useMemo(
     () =>
       pricingBaseline
-        ? mergeModelPricingDefaults(
-            initialModelDefaults,
-            pricingBaseline.options
-          )
+        ? {
+            ...initialModelDefaults,
+            ...pricingBaseline.options,
+            BillingMode:
+              pricingBaseline.options['billing_setting.billing_mode'],
+            BillingExpr:
+              pricingBaseline.options['billing_setting.billing_expr'],
+            PluginBillingExpr:
+              pricingBaseline.options['billing_setting.plugin_billing_expr'],
+          }
         : initialModelDefaults,
     [initialModelDefaults, pricingBaseline]
   )

@@ -30,9 +30,7 @@ func TestUpdateOptionRejectsRetiredFrontendTheme(t *testing.T) {
 func TestGetStatusAdvertisesDefaultDashboard(t *testing.T) {
 	previousMap := common.OptionMap
 	common.OptionMap = map[string]string{}
-	t.Cleanup(func() {
-		common.OptionMap = previousMap
-	})
+	t.Cleanup(func() { common.OptionMap = previousMap })
 	response := httptest.NewRecorder()
 	context, _ := gin.CreateTestContext(response)
 	context.Request = httptest.NewRequest(http.MethodGet, "/api/status", nil)

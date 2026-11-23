@@ -703,12 +703,9 @@ export const ModelPricingEditorPanel = forwardRef<
       return data
     },
     [
-      billingExpr,
-      form,
       pricingMode,
       requestRuleExpr,
       resolvedBillingExpr,
-      t,
       pluginExpressions,
       editData,
       pluginVariants,
@@ -726,7 +723,6 @@ export const ModelPricingEditorPanel = forwardRef<
     }
     if (!(await form.trigger()) || !validatePricingValues()) return
     const draft = buildSubmitData(form.getValues())
-    if (!draft) return
     const generation = ++conversionGeneration.current
     setConversionReason('')
     try {
@@ -737,7 +733,6 @@ export const ModelPricingEditorPanel = forwardRef<
       })
       if (generation !== conversionGeneration.current) return
       const current = buildSubmitData(form.getValues())
-      if (!current) return
       if (
         current.name !== draft.name ||
         JSON.stringify(pricingFromDraft(current)) !== JSON.stringify(pricing)

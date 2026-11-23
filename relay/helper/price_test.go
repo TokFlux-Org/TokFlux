@@ -311,7 +311,6 @@ func TestModelPriceHelperRequestBillingRatiosOnlyApplyToFixedPrice(t *testing.T)
 	require.Equal(t, "QuotaFromFloat", clamp.Op)
 	require.Equal(t, common.QuotaClampOverflow, clamp.Kind)
 	require.Nil(t, info.Billing)
-
 }
 
 // Pricing identity is resolved once in ModelPriceHelper via the candidate
@@ -746,7 +745,3 @@ func (s *priceTestReservation) Refund(*gin.Context)      {}
 func (s *priceTestReservation) NeedsRefund() bool        { return false }
 func (s *priceTestReservation) GetPreConsumedQuota() int { return s.held }
 func (s *priceTestReservation) Reserve(quota int) error  { s.held = max(s.held, quota); return nil }
-func (s *priceTestReservation) ConfirmDispatch() error   { return nil }
-func (s *priceTestReservation) ReserveUsage(quota int) error {
-	return s.Reserve(quota)
-}

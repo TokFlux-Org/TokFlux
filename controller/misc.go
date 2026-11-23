@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -45,8 +46,6 @@ func GetStatus(c *gin.Context) {
 	defer common.OptionMapRWMutex.RUnlock()
 
 	legalSetting := system_setting.GetLegalSettings()
-	growthSetting := operation_setting.GetGrowthSetting()
-	growthCenterEnabled := growthSetting.Enabled || growthSetting.SubmissionEnabled || growthSetting.DailyCheckinEnabled
 
 	data := gin.H{
 		"version":                     common.Version,
@@ -93,8 +92,6 @@ func GetStatus(c *gin.Context) {
 		"password_login_enabled":        common.PasswordLoginEnabled,
 		"password_register_enabled":     common.PasswordRegisterEnabled,
 		"default_use_auto_group":        setting.DefaultUseAutoGroup,
-		"invite_rebate_percentage":      common.InviteRebatePercentage,
-		"quota_for_inviter":             common.QuotaForInviter,
 
 		"password_login_encryption_enabled": common.PasswordLoginEncryptionEnabled,
 
@@ -126,10 +123,7 @@ func GetStatus(c *gin.Context) {
 		"setup":                       constant.Setup,
 		"user_agreement_enabled":      legalSetting.UserAgreement != "",
 		"privacy_policy_enabled":      legalSetting.PrivacyPolicy != "",
-		"checkin_enabled":             growthSetting.DailyCheckinEnabled,
-		"growth_center_enabled":       growthCenterEnabled,
-		"growth_rewards_enabled":      growthSetting.Enabled || growthSetting.DailyCheckinEnabled,
-		"growth_submission_enabled":   growthSetting.SubmissionEnabled,
+		"checkin_enabled":             operation_setting.GetCheckinSetting().Enabled,
 		"log_export_enabled":          operation_setting.GetLogSetting().UserExportEnabled,
 		"log_max_range_days":          operation_setting.GetLogSetting().MaxRangeDays,
 	}
@@ -301,7 +295,7 @@ type PasswordResetRequest struct {
 
 func ResetPassword(c *gin.Context) {
 	var req PasswordResetRequest
-	err := common.DecodeJson(c.Request.Body, &req)
+	err := json.NewDecoder(c.Request.Body).Decode(&req)
 	if err != nil {
 		common.ApiError(c, err)
 		return

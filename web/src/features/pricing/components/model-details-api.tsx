@@ -32,7 +32,6 @@ import {
   CodeBlock,
   CodeBlockCopyButton,
 } from '@/components/ai-elements/code-block'
-import { isGptImage2ModelName, isGptImageModelName } from '../lib/image-models'
 import {
   StaticDataTable,
   staticDataTableClassNames as tableStyles,
@@ -352,59 +351,24 @@ function buildEmbeddingSample(lang: Lang, ctx: SampleContext): string {
   ].join('\n')
 }
 
-type ImageSampleOptions = {
-  size: string
-  n: number
-  quality?: string
-  output_format?: string
-  responseField: 'url' | 'b64_json'
-}
-
-function getImageSampleOptions(modelName: string): ImageSampleOptions {
-  if (isGptImageModelName(modelName)) {
-    return {
-      size: isGptImage2ModelName(modelName) ? '2048x1152' : '1024x1024',
-      quality: isGptImage2ModelName(modelName) ? 'medium' : 'auto',
-      output_format: 'png',
-      n: 1,
-      responseField: 'b64_json',
-    }
-  }
-
-  return {
-    size: '1024x1024',
-    n: 1,
-    responseField: 'url',
-  }
-}
-
 function buildImageSample(lang: Lang, ctx: SampleContext): string {
   const url = `${ctx.baseUrl}${ctx.endpointPath}`
   const prompt = 'A serene koi pond at sunset, ukiyo-e style.'
-  const options = getImageSampleOptions(ctx.modelName)
-  const body = {
-    model: ctx.modelName,
-    prompt,
-    size: options.size,
-    ...(options.quality ? { quality: options.quality } : {}),
-    n: options.n,
-    ...(options.output_format ? { output_format: options.output_format } : {}),
-  }
 
   if (lang === 'curl') {
-    const jsonBody = JSON.stringify(body, null, 2)
+    const body = JSON.stringify(
+      { model: ctx.modelName, prompt, size: '1024x1024', n: 1 },
+      null,
+      2
+    )
     return [
       `curl ${url} \\`,
       `  -H "Authorization: Bearer $${ctx.apiKeyEnv}" \\`,
       `  -H "Content-Type: application/json" \\`,
-      `  -d '${jsonBody.replace(/\n/g, '\n     ')}'`,
+      `  -d '${body.replace(/\n/g, '\n     ')}'`,
     ].join('\n')
   }
   if (lang === 'python') {
-    const printLine =
-      options.responseField === 'b64_json'
-        ? 'print(response.data[0].b64_json[:80])'
-        : 'print(response.data[0].url)'
     return [
       'from openai import OpenAI',
       '',
@@ -413,22 +377,14 @@ function buildImageSample(lang: Lang, ctx: SampleContext): string {
       'response = client.images.generate(',
       `    model="${ctx.modelName}",`,
       `    prompt="${prompt}",`,
-      `    size="${options.size}",`,
-      ...(options.quality ? [`    quality="${options.quality}",`] : []),
-      `    n=${options.n},`,
-      ...(options.output_format
-        ? [`    output_format="${options.output_format}",`]
-        : []),
+      `    size="1024x1024",`,
+      `    n=1,`,
       ')',
       '',
-      printLine,
+      'print(response.data[0].url)',
     ].join('\n')
   }
   if (lang === 'typescript') {
-    const printLine =
-      options.responseField === 'b64_json'
-        ? `console.log(response.data[0].b64_json?.slice(0, 80))`
-        : `console.log(response.data[0].url)`
     return [
       `import OpenAI from 'openai'`,
       '',
@@ -440,21 +396,13 @@ function buildImageSample(lang: Lang, ctx: SampleContext): string {
       `const response = await client.images.generate({`,
       `  model: '${ctx.modelName}',`,
       `  prompt: '${prompt}',`,
-      `  size: '${options.size}',`,
-      ...(options.quality ? [`  quality: '${options.quality}',`] : []),
-      `  n: ${options.n},`,
-      ...(options.output_format
-        ? [`  output_format: '${options.output_format}',`]
-        : []),
+      `  size: '1024x1024',`,
+      `  n: 1,`,
       `})`,
       '',
-      printLine,
+      `console.log(response.data[0].url)`,
     ].join('\n')
   }
-  const printLine =
-    options.responseField === 'b64_json'
-      ? `console.log(data.data[0].b64_json?.slice(0, 80))`
-      : `console.log(data.data[0].url)`
   return [
     `const response = await fetch('${url}', {`,
     `  method: 'POST',`,
@@ -465,17 +413,13 @@ function buildImageSample(lang: Lang, ctx: SampleContext): string {
     `  body: JSON.stringify({`,
     `    model: '${ctx.modelName}',`,
     `    prompt: '${prompt}',`,
-    `    size: '${options.size}',`,
-    ...(options.quality ? [`    quality: '${options.quality}',`] : []),
-    `    n: ${options.n},`,
-    ...(options.output_format
-      ? [`    output_format: '${options.output_format}',`]
-      : []),
+    `    size: '1024x1024',`,
+    `    n: 1,`,
     `  }),`,
     `})`,
     '',
     `const data = await response.json()`,
-    printLine,
+    `console.log(data.data[0].url)`,
   ].join('\n')
 }
 
@@ -684,27 +628,13 @@ function ParamRangeCell(props: { param: SupportedParameter }) {
   const { defaultValue, range, enumValues } = props.param
   if (defaultValue !== undefined) {
     return (
-      <div className='space-y-1'>
-        <div className='flex flex-wrap items-center gap-1'>
-          <span className='text-muted-foreground text-sm'>=</span>
-          <code className='bg-muted rounded px-1.5 py-0.5 font-mono text-sm'>
-            {String(defaultValue)}
-          </code>
-          {range && (
-            <span className='text-muted-foreground text-sm'>{range}</span>
-          )}
-        </div>
-        {enumValues && enumValues.length > 0 && (
-          <div className='flex flex-wrap gap-0.5'>
-            {enumValues.map((v) => (
-              <code
-                key={v}
-                className='bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono text-sm'
-              >
-                {v}
-              </code>
-            ))}
-          </div>
+      <div className='flex flex-wrap items-center gap-1'>
+        <span className='text-muted-foreground text-sm'>=</span>
+        <code className='bg-muted rounded px-1.5 py-0.5 font-mono text-sm'>
+          {String(defaultValue)}
+        </code>
+        {range && (
+          <span className='text-muted-foreground text-sm'>{range}</span>
         )}
       </div>
     )

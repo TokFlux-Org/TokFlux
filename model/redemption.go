@@ -2,7 +2,6 @@ package model
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 
 	"github.com/QuantumNous/new-api/common"
@@ -24,17 +23,6 @@ type Redemption struct {
 	UsedUserId   int            `json:"used_user_id"`
 	DeletedAt    gorm.DeletedAt `gorm:"index"`
 	ExpiredTime  int64          `json:"expired_time" gorm:"bigint"` // 过期时间，0 表示不过期
-}
-
-const PromotionFundKindRedemptionCredited = "redemption_credited"
-
-var ErrInvalidRedemptionQuota = errors.New("redemption quota must be greater than zero and below the wallet limit")
-
-func ValidateRedemptionQuota(quota int) error {
-	if quota <= 0 || quota >= common.MaxQuota {
-		return ErrInvalidRedemptionQuota
-	}
-	return nil
 }
 
 func GetAllRedemptions(startIdx int, num int) (redemptions []*Redemption, total int64, err error) {
@@ -160,11 +148,7 @@ func Redeem(key string, userId int) (quota int, err error) {
 	}
 	common.RandomSleep()
 	err = DB.Transaction(func(tx *gorm.DB) error {
-		lockedUser, err := lockActiveUserForFinancialWriteTx(tx, userId)
-		if err != nil {
-			return err
-		}
-		err = lockForUpdate(tx).Where(keyCol+" = ?", key).First(redemption).Error
+		err := lockForUpdate(tx).Where(keyCol+" = ?", key).First(redemption).Error
 		if err != nil {
 			return errors.New("invalid redemption code")
 		}
@@ -174,17 +158,13 @@ func Redeem(key string, userId int) (quota int, err error) {
 		if redemption.ExpiredTime != 0 && redemption.ExpiredTime < common.GetTimestamp() {
 			return errors.New("redemption code expired")
 		}
-		if err := ValidateRedemptionQuota(redemption.Quota); err != nil {
-			return err
-		}
-		redeemedAt := common.GetTimestamp()
 		// Compare-and-swap on status: only the transaction that flips
 		// enabled -> used may credit quota, so a concurrent redeem of the
 		// same code loses here even without a row lock (e.g. on SQLite).
 		result := tx.Model(&Redemption{}).
 			Where("id = ? AND status = ?", redemption.Id, common.RedemptionCodeStatusEnabled).
-			Updates(map[string]interface{}{
-				"redeemed_time": redeemedAt,
+			Updates(map[string]any{
+				"redeemed_time": common.GetTimestamp(),
 				"status":        common.RedemptionCodeStatusUsed,
 				"used_user_id":  userId,
 			})
@@ -194,44 +174,27 @@ func Redeem(key string, userId int) (quota int, err error) {
 		if result.RowsAffected == 0 {
 			return errors.New("redemption code already used")
 		}
-		if err := creditTopUpQuota(tx, userId, redemption.Quota, nil); err != nil {
-			return err
-		}
-		balanceAfter := int64(lockedUser.Quota + redemption.Quota)
-		return CreatePromotionFundTransactionTx(tx, &PromotionFundTransaction{
-			TransactionKey: fmt.Sprintf("redemption:%d:credited", redemption.Id),
-			Kind:           PromotionFundKindRedemptionCredited,
-			UserId:         userId,
-			SourceType:     "redemptions",
-			SourceId:       redemption.Id,
-			SourceKey:      fmt.Sprintf("redemptions:%d", redemption.Id),
-			ActorType:      "user",
-			ActorId:        userId,
-			Remark:         redemption.Name,
-			OccurredAt:     redeemedAt,
-		}, []PromotionFundTransactionLeg{{
-			Account:      PromotionFundAccountAPIBalance,
-			Asset:        PromotionFundAssetQuota,
-			Amount:       int64(redemption.Quota),
-			SourceType:   "redemptions",
-			SourceId:     redemption.Id,
-			BalanceAfter: &balanceAfter,
-		}})
+		return creditTopUpQuota(tx, userId, redemption.Quota, nil)
 	})
 	if err != nil {
 		common.SysError(common.LogText("redemption failed: %s", err.Error()))
 		return 0, ErrRedeemFailed
 	}
-	invalidateUserQuotaCacheAfterDBWrite(userId, "redemption")
+	syncCreditUserQuotaCache(userId, redemption.Quota, common.LogText("redemption"))
 	RecordLog(userId, LogTypeTopup, common.NewMessage("Topped up {{quota}} with a redemption code, code ID {{id}}", map[string]any{"quota": logger.FormatQuota(redemption.Quota), "id": redemption.Id}))
 	return redemption.Quota, nil
 }
 
 func (redemption *Redemption) Insert() error {
-	if err := ValidateRedemptionQuota(redemption.Quota); err != nil {
+	if redemption.Quota <= 0 {
+		return errors.New("redemption quota must be positive")
+	}
+	if err := common.ValidateWalletQuota(redemption.Quota); err != nil {
 		return err
 	}
-	return DB.Create(redemption).Error
+	var err error
+	err = DB.Create(redemption).Error
+	return err
 }
 
 func (redemption *Redemption) SelectUpdate() error {
@@ -241,10 +204,15 @@ func (redemption *Redemption) SelectUpdate() error {
 
 // Update Make sure your token's fields is completed, because this will update non-zero values
 func (redemption *Redemption) Update() error {
-	if err := ValidateRedemptionQuota(redemption.Quota); err != nil {
+	if redemption.Quota <= 0 {
+		return errors.New("redemption quota must be positive")
+	}
+	if err := common.ValidateWalletQuota(redemption.Quota); err != nil {
 		return err
 	}
-	return DB.Model(redemption).Select("name", "status", "quota", "redeemed_time", "expired_time").Updates(redemption).Error
+	var err error
+	err = DB.Model(redemption).Select("name", "status", "quota", "redeemed_time", "expired_time").Updates(redemption).Error
+	return err
 }
 
 func (redemption *Redemption) Delete() error {

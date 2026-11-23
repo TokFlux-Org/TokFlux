@@ -177,8 +177,7 @@ describe('local billing expression evaluation', () => {
       splitBillingExprAndRequestRules(combineBillingExpr(base, rules))
     ).toEqual({ billingExpr: base, requestRuleExpr: rules })
   })
-  test.each(contract)('agrees with the Go engine: $name', (...args) => {
-    const [fixture] = args as [typeof contract[number]]
+  test.each(contract)('agrees with the Go engine: $name', (fixture) => {
     const result = evaluateBillingExpression(fixture.expression, {
       imageCount: fixture.imageCount,
       tokens: fixture.tokens as Partial<Record<TokenVariable, number>>,

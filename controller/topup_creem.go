@@ -6,16 +6,16 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
-	"time"
-
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting"
+	"io"
+	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/shopspring/decimal"
@@ -77,7 +77,7 @@ func (*CreemAdaptor) RequestPay(c *gin.Context, req *CreemPayRequest) {
 
 	// 解析产品列表
 	var products []CreemProduct
-	err := common.Unmarshal([]byte(setting.CreemProducts), &products)
+	err := json.Unmarshal([]byte(setting.CreemProducts), &products)
 	if err != nil {
 		logger.LogError(c.Request.Context(), common.LogText("Creem failed to parse product config user_id=%d error=%q", c.GetInt("id"), err.Error()))
 		paymentError(c, common.NewMessage("Product configuration error"))
@@ -180,12 +180,10 @@ type CreemWebhookEvent struct {
 	EventType string `json:"eventType"`
 	CreatedAt int64  `json:"created_at"`
 	Object    struct {
-		Id           string `json:"id"`
-		Object       string `json:"object"`
-		RequestId    string `json:"request_id"`
-		Amount       int    `json:"amount"`
-		RefundAmount int    `json:"refund_amount"`
-		Order        struct {
+		Id        string `json:"id"`
+		Object    string `json:"object"`
+		RequestId string `json:"request_id"`
+		Order     struct {
 			Object      string `json:"object"`
 			Id          string `json:"id"`
 			Customer    string `json:"customer"`
@@ -203,24 +201,6 @@ type CreemWebhookEvent struct {
 			UpdatedAt   string `json:"updated_at"`
 			Mode        string `json:"mode"`
 		} `json:"order"`
-		Transaction struct {
-			Id             string `json:"id"`
-			Object         string `json:"object"`
-			Amount         int    `json:"amount"`
-			AmountPaid     int    `json:"amount_paid"`
-			Currency       string `json:"currency"`
-			Status         string `json:"status"`
-			RefundedAmount int    `json:"refunded_amount"`
-			Order          string `json:"order"`
-			Subscription   string `json:"subscription"`
-		} `json:"transaction"`
-		Checkout struct {
-			Id        string            `json:"id"`
-			Object    string            `json:"object"`
-			RequestId string            `json:"request_id"`
-			Status    string            `json:"status"`
-			Metadata  map[string]string `json:"metadata"`
-		} `json:"checkout"`
 		Product struct {
 			Id                string  `json:"id"`
 			Object            string  `json:"object"`
@@ -305,98 +285,10 @@ func CreemWebhook(c *gin.Context) {
 	switch webhookEvent.EventType {
 	case "checkout.completed":
 		handleCheckoutCompleted(c, &webhookEvent)
-	case "refund.created":
-		handleCreemRefund(c, &webhookEvent)
-	case "dispute.created":
-		handleCreemDispute(c, &webhookEvent)
 	default:
 		logger.LogInfo(c.Request.Context(), common.LogText("Creem webhook ignored event event_type=%s event_id=%s", webhookEvent.EventType, webhookEvent.Id))
 		c.Status(http.StatusOK)
 	}
-}
-
-func handleCreemRefund(c *gin.Context, event *CreemWebhookEvent) {
-	referenceId := firstNonEmptyString(
-		event.Object.RequestId,
-		event.Object.Checkout.RequestId,
-		event.Object.Metadata["trade_no"],
-		event.Object.Metadata["reference_id"],
-		event.Object.Checkout.Metadata["trade_no"],
-		event.Object.Checkout.Metadata["reference_id"],
-	)
-	// Keep the exact pre-upgrade selection order as the only compatibility
-	// alias; both references are therefore proven to come from this event.
-	legacyRefundTradeNo := firstNonEmptyString(event.Object.Id, event.Object.Transaction.Id, event.Object.Order.Transaction, event.Id, event.EventType)
-	refundTradeNo := firstNonEmptyString(event.Id, legacyRefundTradeNo)
-	if referenceId == "" {
-		logger.LogWarn(c.Request.Context(), fmt.Sprintf("Creem 退款事件缺少本地订单号 event_type=%s event_id=%s refund_trade_no=%s", event.EventType, event.Id, refundTradeNo))
-		c.Status(http.StatusOK)
-		return
-	}
-	paidAmount := event.Object.Transaction.AmountPaid
-	if paidAmount <= 0 {
-		paidAmount = event.Object.Order.AmountPaid
-	}
-	refundedAmount := event.Object.Transaction.RefundedAmount
-	amountIsCumulative := refundedAmount > 0
-	if !amountIsCumulative {
-		refundedAmount = event.Object.RefundAmount
-	}
-	kind := model.PromotionRefundKindFull
-	if refundedAmount > 0 && paidAmount > 0 && refundedAmount < paidAmount {
-		kind = model.PromotionRefundKindPartial
-	}
-	if err := handlePromotionRefundFromWebhook(c.Request.Context(), model.PromotionRefundInput{
-		Provider:                 model.PaymentProviderCreem,
-		TradeNo:                  referenceId,
-		RefundTradeNo:            refundTradeNo,
-		EquivalentRefundTradeNos: []string{legacyRefundTradeNo},
-		Kind:                     kind,
-		PaidAmountMinor:          int64(paidAmount),
-		RefundedAmountMinor:      int64(refundedAmount),
-		Currency:                 firstNonEmptyString(event.Object.Transaction.Currency, event.Object.Order.Currency),
-		Remark:                   "creem refund",
-		AmountIsCumulative:       amountIsCumulative,
-	}); err != nil {
-		c.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
-	c.Status(http.StatusOK)
-}
-
-func handleCreemDispute(c *gin.Context, event *CreemWebhookEvent) {
-	referenceId := firstNonEmptyString(
-		event.Object.RequestId,
-		event.Object.Checkout.RequestId,
-		event.Object.Metadata["trade_no"],
-		event.Object.Metadata["reference_id"],
-		event.Object.Checkout.Metadata["trade_no"],
-		event.Object.Checkout.Metadata["reference_id"],
-	)
-	disputeTradeNo := firstNonEmptyString(event.Object.Id, event.Object.Transaction.Id, event.Id, event.EventType)
-	if referenceId == "" {
-		logger.LogWarn(c.Request.Context(), fmt.Sprintf("Creem 拒付事件缺少本地订单号 event_type=%s event_id=%s dispute_trade_no=%s", event.EventType, event.Id, disputeTradeNo))
-		c.Status(http.StatusOK)
-		return
-	}
-	paidAmount := event.Object.Transaction.AmountPaid
-	if paidAmount <= 0 {
-		paidAmount = event.Object.Order.AmountPaid
-	}
-	if err := handlePromotionRefundFromWebhook(c.Request.Context(), model.PromotionRefundInput{
-		Provider:            model.PaymentProviderCreem,
-		TradeNo:             referenceId,
-		RefundTradeNo:       disputeTradeNo,
-		Kind:                model.PromotionRefundKindDispute,
-		PaidAmountMinor:     int64(paidAmount),
-		RefundedAmountMinor: int64(paidAmount),
-		Currency:            firstNonEmptyString(event.Object.Transaction.Currency, event.Object.Order.Currency),
-		Remark:              "creem dispute",
-	}); err != nil {
-		c.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
-	c.Status(http.StatusOK)
 }
 
 // 处理支付完成事件
@@ -446,7 +338,7 @@ func handleCheckoutCompleted(c *gin.Context, event *CreemWebhookEvent) {
 		return
 	}
 
-	if topUp.Status != common.TopUpStatusPending && topUp.Status != common.TopUpStatusSuccess {
+	if topUp.Status != common.TopUpStatusPending {
 		logger.LogInfo(c.Request.Context(), common.LogText("Creem top-up order not pending, ignored trade_no=%s status=%s creem_order_id=%s", referenceId, topUp.Status, event.Object.Order.Id))
 		c.Status(http.StatusOK) // 已处理过的订单，返回成功避免重复处理
 		return
@@ -464,18 +356,7 @@ func handleCheckoutCompleted(c *gin.Context, event *CreemWebhookEvent) {
 		logger.LogWarn(c.Request.Context(), common.LogText("Creem callback customer name is empty trade_no=%s creem_order_id=%s", referenceId, event.Object.Order.Id))
 	}
 
-	payment, err := model.NewVerifiedPaymentFromMinor(int64(event.Object.Order.AmountPaid), event.Object.Order.Currency)
-	if err != nil {
-		logger.LogError(c.Request.Context(), fmt.Sprintf("Creem 回调支付快照无效 trade_no=%s amount_paid=%d currency=%q error=%q", referenceId, event.Object.Order.AmountPaid, event.Object.Order.Currency, err.Error()))
-		c.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-	payment.ProviderPaymentId = firstNonEmptyString(
-		event.Object.Transaction.Id,
-		event.Object.Order.Transaction,
-		event.Object.Order.Id,
-	)
-	err = model.RechargeCreem(referenceId, customerEmail, customerName, payment, c.ClientIP())
+	err := model.RechargeCreem(referenceId, customerEmail, customerName, c.ClientIP())
 	if err != nil {
 		logger.LogError(c.Request.Context(), common.LogText("Creem top-up processing failed trade_no=%s creem_order_id=%s client_ip=%s error=%q", referenceId, event.Object.Order.Id, c.ClientIP(), err.Error()))
 		c.AbortWithStatus(http.StatusInternalServerError)
@@ -530,7 +411,7 @@ func genCreemLink(ctx context.Context, referenceId string, product *CreemProduct
 	}
 
 	// 序列化请求数据
-	jsonData, err := common.Marshal(requestData)
+	jsonData, err := json.Marshal(requestData)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal request data: %v", err)
 	}
@@ -571,7 +452,7 @@ func genCreemLink(ctx context.Context, referenceId string, product *CreemProduct
 	}
 	// 解析响应
 	var checkoutResp CreemCheckoutResponse
-	err = common.Unmarshal(body, &checkoutResp)
+	err = json.Unmarshal(body, &checkoutResp)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse response: %v", err)
 	}

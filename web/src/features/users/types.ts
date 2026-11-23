@@ -143,18 +143,10 @@ export interface ManageUserQuotaPayload {
   action: 'add_quota'
   mode: QuotaAdjustMode
   value: number
-  remark: string
-  idempotency_key: string
-}
-
-export interface UserQuotaAdjustmentResult {
-  previous_quota: number
-  current_quota: number
-  fund_transaction_id: number
 }
 
 // ============================================================================
 // Dialog Types
 // ============================================================================
 
-export type UsersDialogType = 'create' | 'update' | 'delete' | 'subscriptions'
+export type UsersDialogType = 'create' | 'update' | 'delete'

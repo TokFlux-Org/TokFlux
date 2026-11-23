@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	BatchUpdateTypeTokenQuota = iota
-	BatchUpdateTypeUserQuota
+	BatchUpdateTypeUserQuota = iota
+	BatchUpdateTypeTokenQuota
 	BatchUpdateTypeUsedQuota
 	BatchUpdateTypeChannelUsedQuota
 	BatchUpdateTypeRequestCount
@@ -23,7 +23,6 @@ const (
 
 var batchUpdateStores []map[int]int
 var batchUpdateLocks []sync.Mutex
-var batchUpdateRunLock sync.Mutex
 
 func init() {
 	for range BatchUpdateTypeCount {
@@ -63,9 +62,6 @@ func addNewRecord(type_ int, id int, value int) {
 }
 
 func batchUpdate() {
-	batchUpdateRunLock.Lock()
-	defer batchUpdateRunLock.Unlock()
-
 	// check if there's any data to update
 	hasData := false
 	for i := range BatchUpdateTypeCount {
@@ -92,7 +88,7 @@ func batchUpdate() {
 	}
 
 	for i, store := range stores {
-		if i == BatchUpdateTypeUsedQuota || i == BatchUpdateTypeRequestCount {
+		if i == BatchUpdateTypeUserQuota || i == BatchUpdateTypeUsedQuota || i == BatchUpdateTypeRequestCount {
 			continue
 		}
 		for key, value := range store {
@@ -102,21 +98,20 @@ func batchUpdate() {
 				if err != nil {
 					common.SysLog(common.LogText("failed to batch update token quota: %s", err.Error()))
 				}
-			case BatchUpdateTypeUserQuota:
-				if err := updateUserQuotaUsedQuotaAndRequestCount(key, value, 0, 0); err != nil {
-					common.SysLog("failed to batch update user quota: " + err.Error())
-					addNewRecord(BatchUpdateTypeUserQuota, key, value)
-				}
 			case BatchUpdateTypeChannelUsedQuota:
 				updateChannelUsedQuota(key, value)
 			}
 		}
 	}
 
+	userQuotaStore := stores[BatchUpdateTypeUserQuota]
 	usedQuotaStore := stores[BatchUpdateTypeUsedQuota]
 	requestCountStore := stores[BatchUpdateTypeRequestCount]
 
-	userIDs := make(map[int]struct{}, len(usedQuotaStore)+len(requestCountStore))
+	userIDs := make(map[int]struct{}, len(userQuotaStore)+len(usedQuotaStore)+len(requestCountStore))
+	for key := range userQuotaStore {
+		userIDs[key] = struct{}{}
+	}
 	for key := range usedQuotaStore {
 		userIDs[key] = struct{}{}
 	}
@@ -124,17 +119,7 @@ func batchUpdate() {
 		userIDs[key] = struct{}{}
 	}
 	for key := range userIDs {
-		usedQuota := usedQuotaStore[key]
-		requestCount := requestCountStore[key]
-		if err := updateUserQuotaUsedQuotaAndRequestCount(key, 0, usedQuota, requestCount); err != nil {
-			common.SysLog("failed to batch update user accounting: " + err.Error())
-			if usedQuota != 0 {
-				addNewRecord(BatchUpdateTypeUsedQuota, key, usedQuota)
-			}
-			if requestCount != 0 {
-				addNewRecord(BatchUpdateTypeRequestCount, key, requestCount)
-			}
-		}
+		updateUserQuotaUsedQuotaAndRequestCount(key, userQuotaStore[key], usedQuotaStore[key], requestCountStore[key])
 	}
 	common.SysLog(common.LogText("batch update finished"))
 }

@@ -19,8 +19,6 @@ For commercial licensing, please contact support@quantumnous.com
 import { api } from '@/lib/api'
 
 import type {
-  AdminGrowthConfigResponse,
-  AdminGrowthConfigUpdate,
   ConfirmPaymentComplianceResponse,
   FetchUpstreamRatiosRequest,
   LogCleanupTask,
@@ -43,20 +41,6 @@ export async function getSystemOptions() {
 
 export async function updateSystemOption(request: UpdateOptionRequest) {
   const res = await api.put<UpdateOptionResponse>('/api/option/', request)
-  return res.data
-}
-
-export async function updateAdminGrowthConfig(
-  request: AdminGrowthConfigUpdate
-) {
-  const res = await api.put<AdminGrowthConfigResponse>(
-    '/api/growth/admin/config',
-    request,
-    { skipBusinessError: true }
-  )
-  if (!res.data.success) {
-    throw new Error(res.data.message || 'Failed to update growth settings')
-  }
   return res.data
 }
 

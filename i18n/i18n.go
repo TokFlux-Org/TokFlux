@@ -171,9 +171,6 @@ func StatedLang(c *gin.Context) string {
 	}
 
 	// 4. Try Accept-Language header directly (fallback if middleware didn't run)
-	if c.Request == nil {
-		return ""
-	}
 	return ParseAcceptLanguage(c.GetHeader("Accept-Language"))
 }
 

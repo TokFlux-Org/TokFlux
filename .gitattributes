@@ -10,6 +10,9 @@
 *.yml text eol=lf
 *.toml text eol=lf
 *.md text eol=lf
+# Builds read VERSION with `$(cat VERSION)`; a CRLF checkout would put "\r"
+# into the version string.
+VERSION text eol=lf
 
 # JavaScript/TypeScript files
 *.js text eol=lf

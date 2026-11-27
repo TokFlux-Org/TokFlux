@@ -16,7 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { selectLatestRelease, type SystemRelease } from './releases'
+import {
+  getSystemUpdateRepo,
+  selectLatestRelease,
+  type SystemRelease,
+} from './releases'
 
 export type UpdateCheckErrorCode =
   | 'network'
@@ -42,7 +46,7 @@ export async function fetchLatestSystemRelease(
 
   try {
     const response = await fetch(
-      'https://api.github.com/repos/QuantumNous/new-api/releases?per_page=100',
+      `https://api.github.com/repos/${getSystemUpdateRepo()}/releases?per_page=100`,
       {
         credentials: 'omit',
         headers: { Accept: 'application/vnd.github+json' },

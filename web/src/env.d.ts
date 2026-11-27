@@ -18,6 +18,11 @@ For commercial licensing, please contact support@quantumnous.com
 */
 /// <reference types="@rsbuild/core/types" />
 
+interface ImportMetaEnv {
+  /** GitHub `owner/name` whose releases the system update check follows. */
+  readonly VITE_SYSTEM_UPDATE_REPO?: string
+}
+
 declare module '@visactor/react-vchart' {
   export const VChart: React.ComponentType<Record<string, unknown>>
 }

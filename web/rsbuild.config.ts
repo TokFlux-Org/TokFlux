@@ -19,6 +19,10 @@ export default defineConfig(({ envMode }) => {
       env.rawPublicVars.VITE_DEV_SERVER_PORT ||
       3008,
   )
+  const systemUpdateRepo =
+    process.env.VITE_SYSTEM_UPDATE_REPO ||
+    env.rawPublicVars.VITE_SYSTEM_UPDATE_REPO ||
+    ''
 
   const isProd = envMode === 'production'
   const devProxy = Object.fromEntries(
@@ -60,6 +64,10 @@ export default defineConfig(({ envMode }) => {
     source: {
       entry: {
         index: './src/main.tsx',
+      },
+      define: {
+        'import.meta.env.VITE_SYSTEM_UPDATE_REPO':
+          JSON.stringify(systemUpdateRepo),
       },
     },
     resolve: {

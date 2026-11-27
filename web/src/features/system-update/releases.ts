@@ -110,6 +110,20 @@ export function selectLatestRelease(payload: unknown): SystemRelease | null {
   return latest
 }
 
+const DEFAULT_SYSTEM_UPDATE_REPO = 'QuantumNous/new-api'
+
+/**
+ * GitHub repository (`owner/name`) whose releases the update check follows.
+ * A build sets `VITE_SYSTEM_UPDATE_REPO` to follow another repository; an
+ * empty or malformed value keeps the default.
+ */
+export function getSystemUpdateRepo(): string {
+  const repo = import.meta.env.VITE_SYSTEM_UPDATE_REPO?.trim()
+  return repo && /^[\w.-]+\/[\w.-]+$/.test(repo)
+    ? repo
+    : DEFAULT_SYSTEM_UPDATE_REPO
+}
+
 export function getSystemReleaseUrl(release: SystemRelease): string {
-  return `https://github.com/QuantumNous/new-api/releases/tag/${encodeURIComponent(release.tag_name)}`
+  return `https://github.com/${getSystemUpdateRepo()}/releases/tag/${encodeURIComponent(release.tag_name)}`
 }

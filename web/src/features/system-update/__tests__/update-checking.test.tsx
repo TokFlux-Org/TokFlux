@@ -102,6 +102,7 @@ afterEach(() => {
   onlineManager.setOnline(true)
   vi.useRealTimers()
   vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
   vi.restoreAllMocks()
 })
 
@@ -198,6 +199,34 @@ describe('administrator update entry', () => {
     )
     expect(buttons[0]).toHaveFocus()
   })
+
+  test.each([
+    ['TokFlux-Org/TokFlux', 'TokFlux-Org/TokFlux'],
+    [' https://example.com/fork ', 'QuantumNous/new-api'],
+  ])(
+    'checks and links the releases of the configured repository %j',
+    async (configured, repo) => {
+      vi.stubEnv('VITE_SYSTEM_UPDATE_REPO', configured)
+      const user = userEvent.setup()
+      render(<SystemUpdateAction />, { wrapper: Wrapper })
+      await user.click(
+        await screen.findByRole('button', {
+          name: 'New version available: v1.0.0-rc.36',
+        })
+      )
+      expect(String(fetchMock.mock.calls[0][0])).toBe(
+        `https://api.github.com/repos/${repo}/releases?per_page=100`
+      )
+      expect(
+        within(screen.getByRole('dialog')).getByRole('link', {
+          name: 'Go to GitHub',
+        })
+      ).toHaveAttribute(
+        'href',
+        `https://github.com/${repo}/releases/tag/v1.0.0-rc.36`
+      )
+    }
+  )
 
   test('does not suggest a downgrade and updates every entry after a manual recheck', async () => {
     const user = userEvent.setup()

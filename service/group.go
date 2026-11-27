@@ -53,21 +53,15 @@ func IsUserSelectableGroup(userGroup, groupName string) bool {
 	return GroupInUserUsableGroups(userGroup, groupName) && ratio_setting.ContainsGroupRatio(groupName)
 }
 
+// GetUserUsableGroupsForUser adds the groups listed by the user's active
+// subscriptions to the groups of the user's own group.
 func GetUserUsableGroupsForUser(userId int, userGroup string) map[string]string {
 	groups := GetUserUsableGroups(userGroup)
 	if userId <= 0 {
 		return groups
 	}
-	subGroups, allGroups, err := model.GetActiveSubscriptionSupportedGroups(userId)
+	subGroups, err := model.GetActiveSubscriptionSupportedGroups(userId)
 	if err != nil {
-		return groups
-	}
-	if allGroups {
-		for group := range ratio_setting.GetGroupRatioCopy() {
-			if _, ok := groups[group]; !ok {
-				groups[group] = setting.GetUsableGroupDescription(group)
-			}
-		}
 		return groups
 	}
 	for _, group := range subGroups {

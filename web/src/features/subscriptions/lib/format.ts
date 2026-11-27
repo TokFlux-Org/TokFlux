@@ -72,7 +72,7 @@ export function formatSupportedGroups(
   t: TFunction
 ): string {
   if (!groups || groups.length === 0) {
-    return t('All groups')
+    return t('All usable groups')
   }
   return groups.join(', ')
 }

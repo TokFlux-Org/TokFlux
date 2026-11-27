@@ -294,7 +294,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
                 ))}
               </span>
             ) : (
-              <span className='text-sm'>{t('All groups')}</span>
+              <span className='text-sm'>{t('All usable groups')}</span>
             )}
           </div>
           <Separator />

@@ -201,7 +201,9 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
           const groups = row.original.plan.supported_groups || []
           if (groups.length === 0) {
             return (
-              <span className='text-muted-foreground'>{t('All groups')}</span>
+              <span className='text-muted-foreground'>
+                {t('All usable groups')}
+              </span>
             )
           }
           return (

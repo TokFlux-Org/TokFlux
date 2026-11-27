@@ -275,7 +275,9 @@ type SubscriptionPlan struct {
 	// Downgrade user group on expiry (empty = revert to the group held before purchase)
 	DowngradeGroup string `json:"downgrade_group" gorm:"type:varchar(64);default:''"`
 
-	// Supported token/usage groups for subscription quota (empty = all groups)
+	// Supported token/usage groups: subscribers may also use the listed groups
+	// and the subscription quota covers only them; empty adds no group and the
+	// quota covers every group the user can already use.
 	SupportedGroups SubscriptionGroupList `json:"supported_groups" gorm:"type:text;column:supported_groups"`
 
 	// Total quota (amount in quota units, 0 = unlimited)
@@ -405,7 +407,10 @@ type UserSubscription struct {
 	// Whether wallet fallback is allowed after this subscription's quota is exhausted (snapshot from plan)
 	AllowWalletOverflow bool `json:"allow_wallet_overflow"`
 
-	// Snapshot of plan supported token/usage groups at purchase time (empty = all groups)
+	// Snapshot of plan supported token/usage groups at purchase time. Listed
+	// groups become usable while the subscription is active and its quota covers
+	// only them; empty adds no group and the quota covers every group the user
+	// can already use.
 	SupportedGroups SubscriptionGroupList `json:"supported_groups" gorm:"type:text;column:supported_groups"`
 
 	CreatedAt int64 `json:"created_at" gorm:"bigint"`
@@ -1064,23 +1069,22 @@ func UserActiveSubscriptionsAllowWalletOverflow(userId int) (bool, error) {
 	return strictCount == 0, nil
 }
 
-func GetActiveSubscriptionSupportedGroups(userId int) (SubscriptionGroupList, bool, error) {
+// GetActiveSubscriptionSupportedGroups returns the groups the user's active
+// subscriptions list. A subscription without a list adds no group.
+func GetActiveSubscriptionSupportedGroups(userId int) (SubscriptionGroupList, error) {
 	if userId <= 0 {
-		return SubscriptionGroupList{}, false, errors.New("invalid userId")
+		return SubscriptionGroupList{}, errors.New("invalid userId")
 	}
 	now := common.GetTimestamp()
 	var subs []UserSubscription
 	if err := DB.Where("user_id = ? AND status = ? AND end_time > ?", userId, "active", now).
 		Find(&subs).Error; err != nil {
-		return SubscriptionGroupList{}, false, err
+		return SubscriptionGroupList{}, err
 	}
 	seen := map[string]struct{}{}
 	groups := make(SubscriptionGroupList, 0)
 	for _, sub := range subs {
 		sub.NormalizeSupportedGroups()
-		if len(sub.SupportedGroups) == 0 {
-			return SubscriptionGroupList{}, true, nil
-		}
 		for _, group := range sub.SupportedGroups {
 			if _, ok := seen[group]; ok {
 				continue
@@ -1089,7 +1093,7 @@ func GetActiveSubscriptionSupportedGroups(userId int) (SubscriptionGroupList, bo
 			groups = append(groups, group)
 		}
 	}
-	return groups, false, nil
+	return groups, nil
 }
 
 // GetAllUserSubscriptions returns all subscriptions (active and expired) for a user.

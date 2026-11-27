@@ -480,11 +480,13 @@ export function SubscriptionsMutateDrawer({
                           }))}
                           selected={field.value || []}
                           onChange={field.onChange}
-                          placeholder={t('All groups')}
+                          placeholder={t('All usable groups')}
                         />
                       </FormControl>
                       <FormDescription>
-                        {t('Leave empty to allow all groups')}
+                        {t(
+                          'Subscribers also get the selected groups, and the subscription quota covers only them. Leave empty to add no groups and cover every group the user already has'
+                        )}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
